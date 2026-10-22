@@ -17,6 +17,11 @@
 | Presentasi | 4–5 Nov | — | — |
 | Pendampingan | setelah 5 Nov | Perbaikan, serah terima | — |
 
+> **Aturan tempo:** periode sprint adalah **batas paling lambat**, bukan jadwal yang harus ditunggu.
+> Begitu satu task selesai, langsung lanjut ke task berikutnya walaupun tanggal sprintnya belum tiba.
+> Urutan task tetap diikuti karena ada ketergantungan (misalnya T-10 sebelum T-17/T-18).
+> Demo ke klien boleh dimajukan saat satu kelompok fitur sudah siap dicoba.
+
 ---
 
 ## Sprint 0 — Setup (23 Okt)
@@ -32,7 +37,8 @@
 
 - [ ] T-10 (F) **Spike Python di Vercel (hari pertama, go/no-go D-03):** fungsi `api/forecast.py` minimal dengan numpy + scikit-learn, deploy berdampingan dengan Next.js, ukur cold start, cek tidak bentrok dengan rute Next.js. Hasil dicatat di ARCHITECTURE §11
 - [ ] T-11 (F) Migrasi `0001_init.sql` (semua tabel ARCHITECTURE §4, RLS aktif) + seed menu, bahan, resep contoh
-- [ ] T-12 (F) AppShell responsif (bottom nav HP, sidebar tablet landscape) + komponen `ui/` dasar
+- [x] T-12 (F) AppShell responsif (tab bar HP, sidebar ≥1024px) + komponen `ui/` dasar + tema glass (D-17)
+- [x] T-1B (F) UI pratinjau semua halaman dengan data simulasi & forecast sementara TypeScript (D-18); diuji di 4 ukuran layar, tanpa scroll horizontal
 - [ ] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, middleware, rate limit
 - [ ] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken`
 - [ ] T-15 (F) Input rekap harian (stepper +/-, pilih tanggal, tandai tutup, upsert)
@@ -50,7 +56,7 @@
 - [ ] T-23 (F) Import CSV: template, validasi, pratinjau, upsert
 - [ ] T-24 (F) Halaman forecast detail per menu (model, error, jumlah hari data, peringatan)
 - [ ] T-25 (F) Toggle mode demo/data nyata + label "Simulasi"
-- [ ] T-26 (F) Branding: wordmark/logo, palet final dari klien
+- [~] T-26 (F) Branding: wordmark + logo sementara & palet gradasi biru sudah ada (STYLEGUIDE); **sisa:** logo & HEX final dari klien (Q-07)
 - [ ] T-27 (F+K) Demo Sprint 2 ke Julius; prioritaskan sisa masukan
 
 ## Sprint 3 — Stabilisasi (2–3 Nov)
@@ -89,3 +95,4 @@
 - 2026-10-23 — Repo diputuskan public (D-15); AGENTS.md §2 diganti ke workflow raw GitHub + larangan commit data nyata.
 - 2026-10-23 — Laptop: Node 24.22.1, npm 11.19.1, Python 3.12.10 (`py -3.12`), Git 2.56. Next.js 16.4.2 diinisialisasi, `npm run dev` OK (T-03).
 - 2026-10-23 — Push pertama (`13dd990`, author `ayamsmartdev`); deploy Vercel live; Cache Components dimatikan (D-16) (T-03, T-05).
+- 2026-10-23 — UI pratinjau selesai: tema warm + glass iOS + gradasi biru (D-17), 7 halaman dengan data simulasi (D-18), STYLEGUIDE ditulis ulang (T-12, T-1B, T-26).

@@ -1,153 +1,226 @@
 # STYLEGUIDE — AYAMSMART
 
 > Panduan tampilan dan pola komponen. Tailwind CSS v4 murni, tanpa component library.
-> Terakhir diupdate: 23 Oktober 2026.
+> Terakhir diupdate: 23 Oktober 2026. Keputusan tema: ARCHITECTURE.md D-17.
 >
-> **Status palet: SEMENTARA.** Klien baru menyebut "gradasi biru"; logo dan kode warna final
-> menunggu Q-07. Saat palet final datang, cukup ubah token di §2.
+> **Palet brand masih SEMENTARA** sampai logo dan kode warna final dari klien (PRD Q-07).
+> Saat datang, cukup ubah token `--color-brand-*` di `src/app/globals.css`.
 
 ---
 
-## 1. Prinsip
+## 1. Arah Desain
 
-1. **Jari dulu, mata kedua:** dipakai di warung, sering satu tangan. Target sentuh minimal 44px.
-2. **Satu layar, satu tugas:** input rekap tidak dicampur dengan grafik.
-3. **Angka paling penting paling besar:** prediksi besok dan kebutuhan ayam harus terbaca dalam 2 detik.
-4. **Jujur secara visual:** prediksi dibedakan jelas dari data aktual; data simulasi selalu berlabel.
-5. **Mode terang saja** (D-14).
+**Hangat, tenang, dan langsung menjawab.** Pemilik warung membuka aplikasi untuk satu pertanyaan:
+*besok siapkan berapa?* Jawaban itu tampil sebagai satu kalimat besar di beranda; elemen lain dibuat tenang.
+
+1. **Satu elemen menonjol per halaman.** Di beranda: kalimat "Siapkan **118** potong ayam". Jangan
+   menambah sorotan bersaing (badge warna-warni, banyak angka besar).
+2. **Kaca ala iOS di atas latar hangat-ke-biru.** Kaca butuh sesuatu di belakangnya; latar statis
+   dari krem nasi (atas) ke biru langit (bawah) memberi kedalaman tanpa animasi.
+3. **Warmth dari dunia ayam geprek, bukan template.** Aksen keemasan *kriuk* (warna ayam goreng) dan
+   merah *sambal*; netral memakai abu-abu hangat, bukan abu-abu dingin.
+4. **Jari dulu.** Target sentuh minimal 44px, input minimal 16px (iOS tidak auto-zoom).
+5. **Jujur secara visual.** Prediksi dibedakan dari data aktual; data simulasi selalu berlabel.
+6. **Mode terang saja** (D-14).
+
+**Hindari:** semua konten dijadikan kartu identik, label huruf kapital di atas judul, panah "→" di
+tombol, satu kata disorot warna dalam judul, animasi masuk di setiap bagian.
 
 ---
 
-## 2. Warna (Token)
+## 2. Warna
 
-Didefinisikan di `src/app/globals.css`:
+Token didefinisikan di `src/app/globals.css` (`@theme`), dipakai sebagai kelas Tailwind
+(`text-ink`, `bg-kriuk-50`, `from-brand-500`, dst.).
 
-```css
-@import "tailwindcss";
+### Inti
 
-@theme {
-  /* Brand — gradasi biru (SEMENTARA) */
-  --color-brand-50:  #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
-  --color-brand-accent: #0ea5e9; /* titik awal gradasi */
+| Nama | Hex | Token | Dipakai untuk |
+|---|---|---|---|
+| Nasi | `#FFF8F0` | `nasi` | Latar atas, warna dasar body |
+| Langit | `#EAF1FB` | `langit` | Latar bawah |
+| Arang | `#2A2420` | `ink` | Teks utama (kontras 14,5:1 di atas Nasi) |
+| Arang lembut | `#6E625A` | `ink-soft` | Teks sekunder (5,6:1) |
+| Arang pudar | `#A2968C` | `ink-faint` | **Dekoratif saja** (ikon chevron), bukan teks |
+| Garis | `#E9E1D8` | `line` | Pemisah baris, grid grafik |
 
-  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
-}
-```
+### Brand — gradasi biru
 
-| Peran | Kelas Tailwind | Dipakai untuk |
+| Token | Hex | Catatan |
 |---|---|---|
-| Gradasi brand | `bg-linear-to-br from-brand-accent to-brand-700` | Header, tombol utama, kartu sorotan |
-| Teks utama | `text-slate-900` | Isi |
-| Teks sekunder | `text-slate-500` | Label, keterangan |
-| Latar halaman | `bg-slate-50` | Body |
-| Permukaan | `bg-white` + `border-slate-200` | Kartu |
-| Sukses | `emerald-600` / latar `emerald-50` | Tersimpan, error forecast rendah |
-| Peringatan | `amber-600` / latar `amber-50` | Data sedikit, badge "Simulasi" |
-| Bahaya | `rose-600` / latar `rose-50` | Hapus, gagal |
+| `brand-50` / `100` / `200` | `#EEF4FF` / `#DCE8FF` / `#BCD3FF` | Latar ikon, kisaran prediksi |
+| `brand-400` | `#5B97F5` | Ujung terang gradasi logo |
+| `brand-500` | `#2F6FE8` | Ujung terang gradasi tombol (teks putih 4,6:1) |
+| `brand-600` | `#2660DC` | Garis grafik |
+| `brand-700` | `#1F4FD1` | Ujung gelap gradasi, teks tautan (teks putih 6,8:1) |
+| `brand-800` | `#1E3FA6` | Ujung gelap angka bergradasi |
 
-> Gradasi memakai sintaks Tailwind v4 (`bg-linear-to-*`). Teks putih di atas gradasi
-> wajib dicek kontrasnya di ujung terang (`brand-accent`).
+Gradasi tombol utama: `bg-linear-to-br from-brand-500 to-brand-700`.
+Angka bergradasi: utilitas `text-brand-gradient`.
 
-**Warna grafik**
-- Aktual: garis/batang `brand-600`, solid
-- Prediksi: garis `brand-600` **putus-putus**, titik berongga
-- Rentang prediksi: area `brand-200` transparansi ~40%
-- Food waste: `rose-500`
-- Penanda hari: titik kecil warna netral `slate-400` dengan tooltip
+### Aksen
+
+| Token | Hex | Dipakai untuk |
+|---|---|---|
+| `kriuk-50` / `100` | `#FDF4E3` / `#FAE6C2` | Latar badge Simulasi, ikon ayam, bar menu terlaris |
+| `kriuk-500` | `#E39B2D` | Titik badge, bar menu terlaris |
+| `kriuk-700` | `#8F5716` | Teks keemasan (≥4,5:1 di atas `kriuk-50`) |
+| `sambal-50` / `500` / `700` | `#FCECE9` / `#D4483B` / `#A7312A` | Food waste, tombol hapus/catat waste |
+| `daun-50` / `600` | `#EAF6EF` / `#2E7D55` | Tren naik, berhasil |
+
+**Aturan kontras:** teks berukuran < 18px wajib ≥ 4,5:1 terhadap latarnya. Cek dengan kalkulator
+kontras sebelum menambah warna baru.
 
 ---
 
-## 3. Tipografi
+## 3. Kaca (Glassmorphism)
 
-Font: **Plus Jakarta Sans** via `next/font/google` (variabel `--font-jakarta`).
+Dua utilitas di `globals.css`:
+
+| Utilitas | Dipakai di | Isi |
+|---|---|---|
+| `glass` | Panel, daftar, sidebar | Putih 58%, `backdrop-blur 22px` + saturasi 170%, border putih tipis, highlight atas, bayangan cokelat hangat |
+| `glass-bar` | Top bar, tab bar, toast, bar total | Lebih pekat (72%) agar konten di belakangnya tidak mengganggu |
+
+- Tanpa dukungan `backdrop-filter`, keduanya otomatis jadi putih hampir solid (fallback `@supports`).
+- **Jangan menumpuk kaca di atas kaca** lebih dari satu lapis; isi panel memakai `bg-white/55` biasa.
+- Bayangan selalu hangat (`rgb(74 52 30 / …)`), bukan hitam.
+- Blur berat di HP murah: batasi elemen `glass` yang terlihat bersamaan; jangan pakai untuk item di dalam daftar panjang.
+
+### Latar aplikasi
+
+Kelas `.app-backdrop` (fixed, statis): dua cahaya lembut (peach kiri atas, biru kanan bawah) di atas
+gradasi Nasi → Langit. Tidak dianimasikan.
+
+---
+
+## 4. Radius (berjenjang menurut hierarki)
+
+| Token | Nilai | Dipakai untuk |
+|---|---|---|
+| `rounded-hero` | 28px | Satu elemen utama per halaman, sidebar |
+| `rounded-panel` | 22px | Panel, daftar berkelompok |
+| `rounded-row` | 14px | Elemen di dalam panel (ikon kotak, item sidebar, input) |
+| `rounded-full` | — | Tombol, segmented control, badge, chip |
+
+---
+
+## 5. Tipografi
+
+Font: **Plus Jakarta Sans Variable** dari paket npm `@fontsource-variable/plus-jakarta-sans`
+(di-host sendiri, tanpa panggilan ke Google Fonts). Satu keluarga untuk semua teks.
 
 | Peran | Kelas |
 |---|---|
-| Judul halaman | `text-xl font-bold sm:text-2xl` |
-| Judul kartu | `text-sm font-semibold text-slate-700` |
-| Angka besar (KPI) | `text-3xl font-bold tabular-nums` |
-| Isi | `text-base` |
-| Keterangan | `text-sm text-slate-500` |
-| Input form | minimal `text-base` (16px) agar iOS tidak auto-zoom |
+| Angka utama (hero) | `text-[64px] sm:text-[80px] font-extrabold tracking-tight tabular-nums text-brand-gradient` |
+| Judul halaman (large title iOS) | `text-[28px] sm:text-[32px] font-bold tracking-tight` |
+| Judul panel | `text-[17px] font-semibold tracking-tight` |
+| Judul grup daftar | `text-[15px] font-semibold text-ink-soft` |
+| Isi | `text-[16px]` (body), paragraf `text-[15px] leading-relaxed` |
+| Keterangan | `text-[13px] text-ink-soft` |
+| Angka di daftar/statistik | `font-bold tabular-nums`, ukuran 18–24px |
 
-Angka selalu `tabular-nums` dan format `id-ID` (`1.250`, `18,2%`). Tanggal: `Sen, 26 Okt`.
+- Kalimat biasa (sentence case), **tanpa label huruf kapital**.
+- Paragraf dibatasi `max-w-prose` (< 80 karakter per baris).
+- Angka & tanggal lewat `src/lib/format.ts` dan `src/lib/date.ts`: `1.250`, `9,8%`, `Jum, 23 Okt`.
 
 ---
 
-## 4. Layout & Navigasi
+## 6. Layout & Navigasi
 
-| Kondisi | Layout |
+| Lebar | Navigasi | Catatan |
+|---|---|---|
+| < 1024px (`lg`) | Top bar kaca + **tab bar mengambang** di bawah | HP portrait/landscape, tablet portrait |
+| ≥ 1024px | **Sidebar kaca** kiri, lebar 256px | Tablet landscape, laptop |
+
+- Tab bar (5): Beranda · Prediksi · Rekap · Waste · Lainnya. Halaman Bahan, Menu & resep, dan
+  Import dibuka dari Lainnya dan menandai tab Lainnya aktif.
+- Sidebar menampilkan semua 7 halaman langsung + catatan Simulasi di bawah.
+- Konten: `mx-auto max-w-5xl px-4 sm:px-6`, padding bawah `pb-36` agar tidak tertutup tab bar.
+- Beranda di `lg`: dua kolom `lg:grid-cols-[1.4fr_1fr]` (hero + grafik | ringkasan + menu terlaris).
+- HP landscape: varian `landscape:max-lg:` merapatkan top bar, tab bar jadi ikon + label sebaris,
+  grafik `h-48`.
+- Safe area iOS: top bar `pt-[env(safe-area-inset-top)]`, tab bar `bottom-[max(0.75rem,env(safe-area-inset-bottom))]`.
+
+### Rute
+
+| Rute | Halaman |
 |---|---|
-| < `lg` (HP portrait/landscape, tablet portrait) | Header ringkas + **bottom navigation** 5 item |
-| ≥ `lg` (tablet landscape, laptop) | **Sidebar** kiri + konten |
-
-- Item navigasi: Dashboard · Forecast · Input · Waste · Lainnya (Rekomendasi, Import, Pengaturan).
-  Di sidebar semua item tampil langsung.
-- Konten: `mx-auto w-full max-w-6xl px-4 sm:px-6`.
-- Bottom nav: `fixed inset-x-0 bottom-0 pb-[env(safe-area-inset-bottom)]`; konten diberi
-  padding bawah agar tidak tertutup.
-- Grid kartu: `grid gap-4 sm:grid-cols-2 lg:grid-cols-4`.
-- HP landscape (tinggi sempit): gunakan varian `landscape:` untuk merapatkan header dan
-  membatasi tinggi grafik (`landscape:h-56`).
-- Toggle mode demo/data nyata selalu terlihat di header.
+| `/` | Beranda |
+| `/prediksi` | Prediksi 5 hari per menu |
+| `/bahan` | Rekomendasi bahan (besok / 5 hari) |
+| `/rekap` | Input rekap harian |
+| `/waste` | Food waste |
+| `/lainnya` | Menu tambahan (HP) |
+| `/pengaturan` | Menu & resep, setelan perhitungan |
+| `/import` | Import CSV |
 
 ---
 
-## 5. Komponen (`src/components/ui/`)
+## 7. Komponen
 
-Setiap komponen menerima `className` tambahan. Gabungkan kelas dengan helper `cn()` sederhana
-(`src/lib/cn.ts`) tanpa dependency tambahan.
+Semua di `src/components/`, ditulis dengan kelas Tailwind biasa dan menerima `className` tambahan
+(digabung dengan `cn()` di `src/lib/cn.ts`).
 
-| Komponen | Kelas dasar |
-|---|---|
-| Button primary | `inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-brand-accent to-brand-700 px-4 font-semibold text-white shadow-sm active:scale-[.98] disabled:opacity-50` |
-| Button secondary | `… rounded-xl border border-slate-300 bg-white px-4 font-semibold text-slate-700 hover:bg-slate-50` |
-| Button danger | `… rounded-xl bg-rose-600 px-4 font-semibold text-white` |
-| Card | `rounded-2xl border border-slate-200 bg-white p-4 shadow-sm` |
-| Input / Select | `min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200` |
-| Stepper (+/-) | Tombol bulat `size-11` kiri-kanan, angka `text-xl font-bold tabular-nums` di tengah, input bisa diketik |
-| Badge Simulasi | `rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200` |
-| Stat (KPI) | Card + label `text-sm text-slate-500` + angka `text-3xl font-bold` + catatan kecil |
-| Toast | Pojok bawah, di atas bottom nav, hilang otomatis 3 detik |
-| Modal | Fokus terkunci di dalam modal, tutup dengan Esc dan klik latar, tombol tutup terlihat |
-| EmptyState | Ikon + kalimat penjelas + satu tombol aksi |
-| Skeleton | `animate-pulse rounded-xl bg-slate-200` |
+| Komponen | File | Catatan |
+|---|---|---|
+| `Panel`, `PanelTitle` | `ui/panel.tsx` | `variant="hero"` untuk satu elemen utama per halaman |
+| `Button`, `LinkButton` | `ui/button.tsx` | `primary` (gradasi), `secondary` (putih + ring biru), `danger` (sambal), `plain` |
+| `Badge`, `SimulasiBadge` | `ui/badge.tsx` | `SimulasiBadge` wajib tampil selama data simulasi |
+| `GroupedList`, `ListRow` | `ui/grouped-list.tsx` | Daftar ala iOS; `href` menambah chevron |
+| `Stepper` | `ui/stepper.tsx` | Tombol bulat 44px + angka yang bisa diketik |
+| `Segmented` | `ui/segmented.tsx` | Pilihan 2–3 opsi |
+| `PageHeader` | `ui/page-header.tsx` | Large title + subjudul |
+| `Toast` | `ui/toast.tsx` | Di atas tab bar, hilang 3,5 detik |
+| Ikon | `icons.tsx` | SVG garis 24px buatan sendiri, `currentColor` |
+| `BrandMark`, `BrandWordmark` | `layout/brand-mark.tsx` | Logo sementara (squircle biru + paha ayam) |
+| `AppShell`, `SidebarNav`, `TabBar` | `layout/` | Kerangka responsif |
+| `SalesChart` | `charts/sales-chart.tsx` | Recharts, tanpa animasi |
 
-**Aksesibilitas wajib**
-- Semua tombol ikon punya `aria-label`.
-- Fokus keyboard terlihat (`focus-visible:ring-2 focus-visible:ring-brand-400`).
-- Status tidak hanya dibedakan dengan warna (tambahkan teks/ikon).
+### Grafik
+
+- Aktual: garis `#2660DC` tegas 2,5px. Prediksi: garis sama, putus-putus `6 5`, titik berongga.
+- Kisaran prediksi: area `#BCD3FF` opasitas 55%.
+- Garis prediksi tersambung dari titik aktual terakhir.
+- Sumbu Y dimulai dekat nilai terendah (80% dari minimum, dibulatkan ke puluhan) agar pola terbaca.
+- Legenda ditulis manual di atas grafik (bukan legenda bawaan Recharts).
+- Animasi dimatikan.
+
+### Aksesibilitas wajib
+
+- Fokus keyboard terlihat: outline biru 2px (global `:focus-visible`).
+- Tombol ikon punya `aria-label`; navigasi aktif memakai `aria-current="page"`.
+- Status tidak hanya dibedakan warna (contoh: "Naik 5%", bukan hanya hijau).
+- Segmented & chip pilihan memakai `role="radio"` / `aria-pressed`.
 
 ---
 
-## 6. Matriks Uji Responsif
+## 8. Gerak
 
-Setiap halaman P1 wajib dicek di DevTools dan minimal satu HP nyata:
+- Tidak ada animasi otomatis. Gerak hanya sebagai respons aksi: tombol mengecil sedikit saat
+  ditekan (`active:scale-[.97]`), toggle bergeser, toast muncul.
+
+---
+
+## 9. Matriks Uji Responsif
 
 | Perangkat | Ukuran (CSS px) | Orientasi |
 |---|---|---|
-| HP kecil | 360 × 800 | Portrait |
-| HP kecil | 800 × 360 | Landscape |
+| HP | 390 × 844 | Portrait |
+| HP | 844 × 390 | Landscape |
 | Tablet | 768 × 1024 | Portrait |
 | Tablet | 1024 × 768 | Landscape |
 
-Lulus jika: tidak ada scroll horizontal, tidak ada teks terpotong, bottom nav tidak menutupi
-konten, semua target sentuh ≥ 44px, grafik terbaca.
+Lulus jika: tidak ada scroll horizontal, tidak ada teks terpotong, tab bar tidak menutupi konten
+akhir, target sentuh ≥ 44px, grafik terbaca.
 
 ---
 
-## 7. Gaya Bahasa UI
+## 10. Gaya Bahasa UI
 
-- Bahasa Indonesia sederhana, kalimat pendek, sapaan netral.
-- Tombol memakai kata kerja: "Simpan rekap", "Hitung ulang", "Tambah menu".
-- Pesan error menjelaskan langkah berikutnya: "Data tersimpan, tapi forecast gagal. Tekan Hitung ulang."
-- Hindari klaim berlebihan ("akurat", "pasti"); gunakan "perkiraan" dan tampilkan error.
+- Bahasa Indonesia sederhana, kalimat pendek, sentence case.
+- Tombol memakai kata kerja yang menyebut hasilnya: "Simpan rekap", "Catat waste", "Lihat semua bahan".
+- Pesan error/kosong memberi langkah berikutnya, tidak meminta maaf.
+- Hindari klaim berlebihan ("akurat", "pasti", "AI canggih"); pakai "perkiraan" dan tampilkan selisih.
+- Selama database belum tersambung, aksi simpan menampilkan pesan pratinjau yang jujur
+  ("…belum disimpan karena database belum tersambung").

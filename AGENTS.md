@@ -202,12 +202,14 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 
 **Terakhir diupdate:** 23 Oktober 2026
 
-- **Status:** project Next.js 16.4.2 (create-next-app, Turbopack, template app + Tailwind) sudah
-  diinisialisasi di lokal dan `npm run dev` berjalan. Belum ada kode fitur.
+- **Status:** UI pratinjau selesai (D-17, D-18): Beranda, Prediksi, Bahan, Rekap, Waste, Lainnya,
+  Menu & resep, Import. Semua angka dari **data simulasi** (`src/lib/demo-data.ts`) dan forecast
+  sementara TypeScript (`src/lib/preview-forecast.ts`). Belum ada database, PIN, maupun Python.
+  Aksi simpan hanya menampilkan pesan pratinjau.
 - **Sudah jadi:** paket dokumentasi (`AGENTS.md`, `CLAUDE.md`, `README.md`, `.env.example`, `.python-version`, `docs/*`).
   Python 3.12.10 terpasang di laptop (dipanggil dengan `py -3.12`; `python` default di laptop = 3.15, jangan dipakai).
 - **Deploy:** https://ayam-smart.vercel.app (auto-deploy dari `main`). Cache Components dimatikan (D-16).
-- **Sedang dikerjakan:** Sprint 0: project Supabase + `.env.local` (T-04). Sprint 1 dimulai 24 Okt dengan spike Python (T-10).
+- **Berikutnya:** project Supabase + `.env.local` (T-04), lalu spike Python (T-10). Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
   (keduanya login via GitHub `ayamsmartdev`) sudah dibuat. 2FA belum diaktifkan (T-02).
 - **Keputusan yang belum final:** spike Python di Vercel (D-03) belum diuji; PIN (D-06) menunggu persetujuan klien.

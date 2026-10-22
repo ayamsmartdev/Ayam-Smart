@@ -1,69 +1,135 @@
-import Image from "next/image";
+import { SalesChart } from "@/components/charts/sales-chart";
+import { LinkButton } from "@/components/ui/button";
+import { GroupedList, ListRow } from "@/components/ui/grouped-list";
+import { PageHeader } from "@/components/ui/page-header";
+import { Panel, PanelTitle } from "@/components/ui/panel";
+import { formatDayLong } from "@/lib/date";
+import { formatNumber, formatPercent } from "@/lib/format";
+import { getPreviewSnapshot } from "@/lib/preview";
 
-export default function Home() {
+export default function BerandaPage() {
+  const s = getPreviewSnapshot();
+  const chicken = s.tomorrowNeeds.find((n) => n.ingredient.isChicken);
+  const tomorrowTotal = s.total.points.find((p) => p.date === s.tomorrow);
+  const change = s.stats.soldPrev7 > 0 ? ((s.stats.sold7 - s.stats.soldPrev7) / s.stats.soldPrev7) * 100 : 0;
+  const ranked = [...s.menus].sort((a, b) => b.last7 - a.last7);
+  const top = ranked[0]?.last7 ?? 1;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <PageHeader title="Beranda" subtitle={formatDayLong(s.today)} />
+
+      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <div className="space-y-5">
+          <Panel variant="hero" aria-labelledby="hero-title">
+            <p id="hero-title" className="text-[15px] font-medium text-ink-soft">
+              Besok, {formatDayLong(s.tomorrow)}
+            </p>
+            <p className="mt-3 text-[19px] font-semibold leading-snug sm:text-[22px]">
+              Siapkan{" "}
+              <span className="text-brand-gradient align-[-0.08em] text-[64px] font-extrabold leading-none tracking-tight tabular-nums sm:text-[80px]">
+                {formatNumber(chicken?.recommended ?? 0)}
+              </span>{" "}
+              <span className="whitespace-nowrap">potong ayam</span>
+            </p>
+            <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink-soft">
+              Sekitar {formatNumber(chicken?.chickens ?? 0)} ekor, sudah termasuk cadangan{" "}
+              {s.settings.bufferPct}%. Perkiraan terjual{" "}
+              {formatNumber(Math.round(tomorrowTotal?.predicted ?? 0))} porsi
+              {tomorrowTotal?.lower != null && tomorrowTotal.upper != null
+                ? ` (kisaran ${formatNumber(Math.round(tomorrowTotal.lower))}–${formatNumber(Math.round(tomorrowTotal.upper))})`
+                : ""}
+              .
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2.5">
+              <LinkButton href="/bahan">Lihat semua bahan</LinkButton>
+              <LinkButton href="/rekap" variant="secondary">
+                Isi rekap hari ini
+              </LinkButton>
+            </div>
+          </Panel>
+
+          <Panel aria-labelledby="chart-title">
+            <PanelTitle id="chart-title" className="mb-3">
+              Penjualan dan prediksi
+            </PanelTitle>
+            <SalesChart data={s.chart} />
+          </Panel>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <div className="space-y-5">
+          <section aria-labelledby="stats-title">
+            <h2 id="stats-title" className="mb-2 px-1 text-[15px] font-semibold text-ink-soft">
+              7 hari terakhir
+            </h2>
+            {/* HP: 3 kolom berdampingan. Tablet landscape (kolom sempit): baris label–nilai. */}
+            <dl className="glass grid grid-cols-3 divide-x divide-line/70 rounded-panel lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
+              {[
+                {
+                  label: "Terjual",
+                  value: formatNumber(s.stats.sold7),
+                  note: `${change >= 0 ? "Naik" : "Turun"} ${formatPercent(Math.abs(change), 0)}`,
+                  noteClass: change >= 0 ? "font-semibold text-daun-600" : "font-semibold text-sambal-700",
+                  valueClass: "",
+                },
+                {
+                  label: "Per hari",
+                  value: formatNumber(s.stats.avgPerDay7),
+                  note: "porsi",
+                  noteClass: "text-ink-soft",
+                  valueClass: "",
+                },
+                {
+                  label: "Food waste",
+                  value: formatPercent(s.stats.wasteRate7),
+                  note: `${formatNumber(s.stats.wasteChicken7)} potong`,
+                  noteClass: "text-ink-soft",
+                  valueClass: "text-sambal-700",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="px-3 py-4 sm:px-4 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:py-3.5"
+                >
+                  <dt className="text-[13px] text-ink-soft lg:text-[15px]">{item.label}</dt>
+                  <dd className="lg:text-right">
+                    <span className={`mt-1 block text-[24px] font-bold tabular-nums lg:mt-0 lg:text-[22px] ${item.valueClass}`}>
+                      {item.value}
+                    </span>
+                    <span className={`block text-[12px] ${item.noteClass}`}>{item.note}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <GroupedList
+            title="Menu terlaris, 7 hari"
+            footer="Pratinjau memakai data simulasi. Angka berganti otomatis saat rekap harian mulai diisi."
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {ranked.map(({ menu, last7 }) => (
+              <ListRow
+                key={menu.id}
+                title={menu.name}
+                subtitle={
+                  <span className="mt-1.5 block h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-ink/[.06]">
+                    <span
+                      className="block h-full rounded-full bg-linear-to-r from-kriuk-500 to-kriuk-100"
+                      style={{ width: `${(last7 / top) * 100}%` }}
+                    />
+                  </span>
+                }
+                trailing={
+                  <span className="text-[16px] font-semibold tabular-nums">
+                    {formatNumber(last7)}
+                    <span className="ml-1 text-[13px] font-normal text-ink-soft">porsi</span>
+                  </span>
+                }
+              />
+            ))}
+          </GroupedList>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

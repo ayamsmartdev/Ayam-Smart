@@ -33,8 +33,9 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 | Lapisan | Teknologi | Catatan |
 |---|---|---|
 | Framework | Next.js 16.4.2 (App Router, Turbopack) + TypeScript strict | Dibuat dengan create-next-app 16.4.2; Cache Components & Partial Prefetching dimatikan (D-16); Tailwind lewat loader `@tailwindcss/turbopack` di `next.config.ts` (tanpa PostCSS config) |
-| Styling | Tailwind CSS v4 murni | Tanpa component library (D-01) |
-| Grafik | Recharts | Satu-satunya library UI tambahan |
+| Styling | Tailwind CSS v4 murni | Tanpa component library (D-01); tema & token di `STYLEGUIDE.md` (D-17) |
+| Font | Plus Jakarta Sans Variable (`@fontsource-variable/plus-jakarta-sans`) | Di-host sendiri, tanpa panggilan Google Fonts saat build |
+| Grafik | Recharts 3 | Satu-satunya library UI tambahan |
 | Validasi | zod | Validasi input di server |
 | Database | Supabase (PostgreSQL), region Singapore | Free plan (D-02, D-13) |
 | Forecast | Python 3.12: numpy, scikit-learn, FastAPI | Vercel Python Function (D-03); versi dikunci di `.python-version` |
@@ -67,31 +68,41 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 │  └─ migrations/                   # 0001_init.sql, dst. Dijalankan berurutan
 └─ src/
    ├─ middleware.ts                 # proteksi halaman tulis dengan cookie PIN
-   ├─ app/
-   │  ├─ layout.tsx                 # shell: bottom nav (HP) / sidebar (tablet landscape)
-   │  ├─ page.tsx                   # Dashboard
-   │  ├─ forecast/page.tsx          # Detail forecast per menu
-   │  ├─ rekomendasi/page.tsx       # Rekomendasi bahan baku
-   │  ├─ input/page.tsx             # Rekap harian            (PIN)
-   │  ├─ waste/page.tsx             # Food waste              (PIN)
-   │  ├─ import/page.tsx            # Import CSV              (PIN)
-   │  ├─ pengaturan/page.tsx        # Menu, bahan, resep, konteks hari, setelan (PIN)
-   │  └─ pin/page.tsx               # Form PIN
-   ├─ actions/                      # Server Actions (semua tulis data ada di sini)
+   ├─ app/                          # rute berbahasa Indonesia (D-18)
+   │  ├─ layout.tsx                 # font, latar, AppShell; dynamic = "force-dynamic"
+   │  ├─ globals.css                # token tema, utilitas glass/glass-bar
+   │  ├─ page.tsx                   # Beranda                   ✅ pratinjau
+   │  ├─ prediksi/                  # Prediksi per menu         ✅ pratinjau
+   │  ├─ bahan/                     # Rekomendasi bahan baku    ✅ pratinjau
+   │  ├─ rekap/                     # Rekap harian       (PIN)  ✅ pratinjau
+   │  ├─ waste/                     # Food waste         (PIN)  ✅ pratinjau
+   │  ├─ lainnya/                   # Menu tambahan (HP)        ✅
+   │  ├─ pengaturan/                # Menu, resep, setelan (PIN) ✅ pratinjau (baca saja)
+   │  ├─ import/                    # Import CSV         (PIN)  ✅ template; unggah belum
+   │  └─ pin/                       # Form PIN                  belum
+   ├─ actions/                      # Server Actions (semua tulis data ada di sini) — belum
    ├─ components/
-   │  ├─ ui/                        # Button, Card, Input, Stepper, Modal, Toast, Badge, ...
-   │  ├─ charts/                    # wrapper Recharts
-   │  └─ layout/                    # AppShell, BottomNav, Sidebar, DatasetToggle
+   │  ├─ icons.tsx                  # ikon SVG buatan sendiri
+   │  ├─ ui/                        # Panel, Button, Badge, GroupedList, Stepper, Segmented, PageHeader, Toast
+   │  ├─ charts/                    # SalesChart (Recharts)
+   │  └─ layout/                    # AppShell, SidebarNav, TabBar, BrandMark
    └─ lib/
-      ├─ supabase-server.ts         # client Supabase server-only (import 'server-only')
-      ├─ pin.ts                     # verifikasi PIN, tanda tangan cookie, rate limit
-      ├─ date.ts                    # todayWIB(), format tanggal id-ID
-      ├─ format.ts                  # format angka id-ID
-      ├─ dataset.ts                 # baca mode demo/live dari cookie
-      ├─ forecast-client.ts         # panggil Python + simpan hasil
-      ├─ recommend.ts               # rumus rekomendasi bahan
-      └─ csv.ts                     # parse & validasi CSV
+      ├─ cn.ts                      # gabung class
+      ├─ date.ts                    # todayWIB(), addDays(), format tanggal id-ID        ✅
+      ├─ format.ts                  # format angka & satuan id-ID                        ✅
+      ├─ recommend.ts               # rumus rekomendasi bahan (§7)                       ✅
+      ├─ demo-data.ts               # DATA SIMULASI sementara (menu, resep, penjualan)   ✅ sementara
+      ├─ preview-forecast.ts        # forecast pratinjau TypeScript (D-18)               ✅ sementara
+      ├─ preview.ts                 # penyusun angka pratinjau untuk semua halaman       ✅ sementara
+      ├─ supabase-server.ts         # client Supabase server-only (import 'server-only')  belum
+      ├─ pin.ts                     # verifikasi PIN, tanda tangan cookie, rate limit     belum
+      ├─ dataset.ts                 # baca mode demo/live dari cookie                     belum
+      ├─ forecast-client.ts         # panggil Python + simpan hasil                       belum
+      └─ csv.ts                     # parse & validasi CSV                                belum
 ```
+
+> File bertanda **sementara** diganti saat data tersambung ke Supabase. Bentuk data yang dikembalikan
+> `preview.ts` (`PreviewSnapshot`) dipertahankan supaya halaman tidak perlu dirombak.
 
 > **Catatan rute:** folder `api/` di root adalah Vercel Function, bukan rute Next.js. Jangan
 > membuat Route Handler Next.js di `/api/forecast` agar tidak bentrok. Perilaku ini diverifikasi di spike T-10.
@@ -172,7 +183,10 @@ Response:
 }
 ```
 
-`history` hanya berisi hari yang punya data dan tidak bertanda `tutup`. `start_date` = besok (WIB).
+`history` hanya berisi hari yang punya data dan tidak bertanda `tutup`. `start_date` = **hari setelah
+tanggal data terakhir**. Contoh: rekap terakhir kemarin → prediksi mulai hari ini; setelah rekap hari ini
+disimpan malam harinya → prediksi mulai besok. Halaman yang menampilkan "besok" memilih titik dengan
+tanggal besok (WIB) dari hasil ini.
 
 ### 6.2 Model
 
@@ -306,6 +320,8 @@ Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fil
 | D-14 | 23 Okt 2026 | UI hanya mode terang | Dipakai di warung/area terang; menghemat waktu sprint | Berlaku |
 | D-15 | 23 Okt 2026 | Repo GitHub **public**. Konsekuensi: secret dan data nyata klien tidak pernah di-commit; hanya data simulasi di repo | Klien menyerahkan keputusan ke Fillian; AI bisa membaca repo langsung via raw GitHub (workflow sama dengan SmartWMS) | Berlaku |
 | D-16 | 23 Okt 2026 | Cache Components dan Partial Prefetching Next.js 16 dimatikan (hapus `cacheComponents` & `partialPrefetching` dari `next.config.ts`) | Hampir semua halaman dinamis (cookie mode demo/PIN, data harus selalu terbaru); model caching baru menambah aturan Suspense/`"use cache"` tanpa manfaat berarti untuk tenggat 2 minggu | Berlaku |
+| D-17 | 23 Okt 2026 | Tema visual: latar hangat Nasi → Langit, kaca ala iOS (`glass`, `glass-bar`), gradasi biru brand, aksen kriuk (keemasan) & sambal (merah), font Plus Jakarta Sans; detail di `STYLEGUIDE.md` | Permintaan klien/Fillian: minimalis, nyaman di mata, warm tapi cocok dengan gradasi biru, glassmorphism iOS. Warna aksen diambil dari dunia ayam geprek agar tidak terasa template | Berlaku |
+| D-18 | 23 Okt 2026 | UI dibangun lebih dulu sebagai **pratinjau** dengan data simulasi (`lib/demo-data.ts`) dan forecast sementara TypeScript (`lib/preview-forecast.ts`: rata-rata hari yang sama 4 minggu, error = WAPE backtest 14 hari). Rute berbahasa Indonesia (`/prediksi`, `/bahan`, `/rekap`, `/waste`, `/pengaturan`, `/import`, `/lainnya`). Aksi simpan menampilkan pesan pratinjau yang jujur | Klien bisa melihat dan memberi masukan lebih awal (Agile). Forecast sementara tidak menggantikan D-03; kontrak §6.1 tetap. Setelah Supabase & Python siap, sumber data diganti tanpa mengubah halaman | Berlaku (sementara) |
 
 ---
 

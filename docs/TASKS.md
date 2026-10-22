@@ -23,9 +23,9 @@
 
 - [x] T-01 Gmail AYAMSMART dibuat
 - [~] T-02 (F) Akun GitHub `ayamsmartdev` (login Google), Vercel Hobby & Supabase Free (login GitHub) sudah dibuat. **Sisa:** aktifkan 2FA GitHub & Gmail (authenticator), simpan recovery code
-- [~] T-03 (F) Repo public `ayamsmartdev/Ayam-Smart` sudah dibuat (D-15). **Sisa:** clone ke VS Code lokal; set git config lokal + remote `ayamsmartdev@` (AGENTS.md §2); install Node.js LTS + Python 3.12 di laptop; init Next.js (TypeScript, Tailwind v4, App Router, `src/`); tambah `!.env.example`, `.venv/`, `__pycache__/` di `.gitignore`; buat `.python-version` (`3.12`); commit paket docs; push pertama
-- [ ] T-04 (F) Buat project Supabase (region Singapore); simpan URL & secret key ke `.env.local` dan Vercel
-- [ ] T-05 (F) Hubungkan repo ke Vercel; isi env vars; deploy pertama; kirim link ke Julius
+- [x] T-03 (F) Repo public `ayamsmartdev/Ayam-Smart` (D-15); Next.js 16.4.2 diinisialisasi; docs, `.gitignore`, `.python-version` ter-commit; push pertama atas nama `ayamsmartdev`
+- [~] T-04 (F) Buat project Supabase (region Singapore); simpan URL & secret key ke `.env.local` dan Vercel
+- [~] T-05 (F) Repo terhubung ke Vercel, deploy pertama live di https://ayam-smart.vercel.app. **Sisa:** isi env vars Supabase; kirim link ke Julius
 - [ ] T-06 (F) Kirim ke Julius: pertanyaan terbuka PRD §8 (Q-01–Q-11)
 
 ## Sprint 1 — Data & Forecast Inti (24–28 Okt)
@@ -88,3 +88,4 @@
 - 2026-10-23 — Akun GitHub `ayamsmartdev`, Vercel, Supabase dibuat; repo `ayamsmartdev/Ayam-Smart` dibuat, belum push (T-01, T-02, T-03).
 - 2026-10-23 — Repo diputuskan public (D-15); AGENTS.md §2 diganti ke workflow raw GitHub + larangan commit data nyata.
 - 2026-10-23 — Laptop: Node 24.22.1, npm 11.19.1, Python 3.12.10 (`py -3.12`), Git 2.56. Next.js 16.4.2 diinisialisasi, `npm run dev` OK (T-03).
+- 2026-10-23 — Push pertama (`13dd990`, author `ayamsmartdev`); deploy Vercel live; Cache Components dimatikan (D-16) (T-03, T-05).

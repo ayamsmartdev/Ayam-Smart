@@ -32,7 +32,7 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 
 | Lapisan | Teknologi | Catatan |
 |---|---|---|
-| Framework | Next.js 16.4.2 (App Router, Turbopack) + TypeScript strict | Dibuat dengan create-next-app 16.4.2 |
+| Framework | Next.js 16.4.2 (App Router, Turbopack) + TypeScript strict | Dibuat dengan create-next-app 16.4.2; Cache Components & Partial Prefetching dimatikan (D-16); Tailwind lewat loader `@tailwindcss/turbopack` di `next.config.ts` (tanpa PostCSS config) |
 | Styling | Tailwind CSS v4 murni | Tanpa component library (D-01) |
 | Grafik | Recharts | Satu-satunya library UI tambahan |
 | Validasi | zod | Validasi input di server |
@@ -305,6 +305,7 @@ Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fil
 | D-13 | 23 Okt 2026 | Hosting Vercel Hobby (pilihan klien); risiko kebijakan non-komersial dicatat dan disampaikan ke klien | Biaya nol untuk tahap awal; plan menjadi keputusan klien setelah serah terima | Berlaku |
 | D-14 | 23 Okt 2026 | UI hanya mode terang | Dipakai di warung/area terang; menghemat waktu sprint | Berlaku |
 | D-15 | 23 Okt 2026 | Repo GitHub **public**. Konsekuensi: secret dan data nyata klien tidak pernah di-commit; hanya data simulasi di repo | Klien menyerahkan keputusan ke Fillian; AI bisa membaca repo langsung via raw GitHub (workflow sama dengan SmartWMS) | Berlaku |
+| D-16 | 23 Okt 2026 | Cache Components dan Partial Prefetching Next.js 16 dimatikan (hapus `cacheComponents` & `partialPrefetching` dari `next.config.ts`) | Hampir semua halaman dinamis (cookie mode demo/PIN, data harus selalu terbaru); model caching baru menambah aturan Suspense/`"use cache"` tanpa manfaat berarti untuk tenggat 2 minggu | Berlaku |
 
 ---
 

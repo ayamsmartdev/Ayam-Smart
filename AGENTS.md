@@ -206,9 +206,10 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   diinisialisasi di lokal dan `npm run dev` berjalan. Belum ada kode fitur.
 - **Sudah jadi:** paket dokumentasi (`AGENTS.md`, `CLAUDE.md`, `README.md`, `.env.example`, `.python-version`, `docs/*`).
   Python 3.12.10 terpasang di laptop (dipanggil dengan `py -3.12`; `python` default di laptop = 3.15, jangan dipakai).
-- **Sedang dikerjakan:** Sprint 0: push pertama, buat project Supabase, hubungkan Vercel (`docs/TASKS.md`).
+- **Deploy:** https://ayam-smart.vercel.app (auto-deploy dari `main`). Cache Components dimatikan (D-16).
+- **Sedang dikerjakan:** Sprint 0: project Supabase + `.env.local` (T-04). Sprint 1 dimulai 24 Okt dengan spike Python (T-10).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
-  (keduanya login via GitHub `ayamsmartdev`) sudah dibuat. Repo `ayamsmartdev/Ayam-Smart` sudah ada, belum ada push.
+  (keduanya login via GitHub `ayamsmartdev`) sudah dibuat. 2FA belum diaktifkan (T-02).
 - **Keputusan yang belum final:** spike Python di Vercel (D-03) belum diuji; PIN (D-06) menunggu persetujuan klien.
 - **Masalah diketahui:** belum ada.
 - **Menunggu klien:** lihat `docs/PRD.md` §8 Pertanyaan Terbuka.

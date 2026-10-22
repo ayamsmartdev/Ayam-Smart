@@ -1,16 +1,29 @@
 import { LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
+import { getAllIngredients } from "@/lib/data/ingredients";
 import { getAllMenus } from "@/lib/data/menus";
+import { getRecipes } from "@/lib/data/recipes";
+import { getSettings } from "@/lib/data/settings";
+import { IngredientManager } from "./ingredient-manager";
 import { MenuManager } from "./menu-manager";
+import { SettingsForm } from "./settings-form";
 
 // Membaca database & dilindungi PIN → selalu dirender saat dibuka (D-19).
 export const dynamic = "force-dynamic";
 
 export default async function PengaturanPage() {
   let menus;
+  let ingredients;
+  let recipes;
+  let settings;
   try {
-    menus = await getAllMenus();
+    [menus, ingredients, recipes, settings] = await Promise.all([
+      getAllMenus(),
+      getAllIngredients(),
+      getRecipes(),
+      getSettings(),
+    ]);
   } catch {
     return (
       <>
@@ -28,10 +41,16 @@ export default async function PengaturanPage() {
 
   return (
     <>
-      <PageHeader title="Menu & resep" subtitle="Daftar menu warung yang direkap setiap hari" />
-      <MenuManager
-        menus={menus.map(({ id, name, price, isActive }) => ({ id, name, price, isActive }))}
-      />
+      <PageHeader title="Menu & resep" subtitle="Menu yang direkap setiap hari dan bahan bakunya" />
+      <div className="space-y-8">
+        <MenuManager
+          menus={menus.map(({ id, name, price, isActive }) => ({ id, name, price, isActive }))}
+          ingredients={ingredients.map(({ id, name, unit, isActive }) => ({ id, name, unit, isActive }))}
+          recipes={recipes}
+        />
+        <IngredientManager ingredients={ingredients} />
+        <SettingsForm initial={settings} />
+      </div>
     </>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   createMenu,
   deleteMenu,
@@ -11,13 +10,16 @@ import {
   updateMenu,
   type MenuActionResult,
 } from "@/actions/menus";
+import { saveRecipe } from "@/actions/recipes";
+import { useActionRunner } from "@/components/hooks/use-action-runner";
 import { ChevronLeftIcon, PlusIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmDialog, DialogError } from "@/components/ui/confirm-dialog";
 import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatQuantity } from "@/lib/format";
+import { RecipeEditor, type RecipeIngredient } from "./recipe-editor";
 
 type Menu = { id: string; name: string; price: number | null; isActive: boolean };
 
@@ -25,7 +27,8 @@ type DialogState =
   | { mode: "closed" }
   | { mode: "create" }
   | { mode: "edit"; menu: Menu }
-  | { mode: "delete"; menu: Menu };
+  | { mode: "delete"; menu: Menu }
+  | { mode: "recipe"; menu: Menu };
 
 const inputClass =
   "min-h-12 w-full rounded-row bg-white/70 px-3 text-[16px] ring-1 ring-line focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300";
@@ -84,42 +87,55 @@ function MenuForm({
   );
 }
 
-export function MenuManager({ menus }: { menus: Menu[] }) {
-  const router = useRouter();
-  const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
-  const [toast, setToast] = useState<string | null>(null);
-  const [needPin, setNeedPin] = useState(false);
-  const [pending, startTransition] = useTransition();
+type RecipeItem = { ingredientId: string; qty: number };
 
-  // Error saat dialog terbuka ditampilkan DI DALAM dialog: toast berada di belakang
-  // lapisan modal sehingga tidak terbaca.
-  const [dialogError, setDialogError] = useState<string | null>(null);
+/** Ringkasan resep di baris menu: maksimal 3 bahan, sisanya "+n". */
+function RecipeSummary({ items, ingredients }: { items: RecipeItem[]; ingredients: RecipeIngredient[] }) {
+  if (items.length === 0) {
+    return <span className="mt-1.5 block text-[12px] font-medium text-kriuk-700">Resep belum diisi</span>;
+  }
+  const shown = items.slice(0, 3);
+  return (
+    <span className="mt-1.5 flex flex-wrap gap-1.5">
+      {shown.map((it) => {
+        const ing = ingredients.find((i) => i.id === it.ingredientId);
+        if (!ing) return null;
+        return (
+          <Badge key={it.ingredientId} tone="neutral">
+            {ing.name} {formatQuantity(it.qty, ing.unit)}
+          </Badge>
+        );
+      })}
+      {items.length > shown.length ? <Badge tone="neutral">+{items.length - shown.length}</Badge> : null}
+    </span>
+  );
+}
+
+export function MenuManager({
+  menus,
+  ingredients,
+  recipes,
+}: {
+  menus: Menu[];
+  ingredients: RecipeIngredient[];
+  recipes: Record<string, RecipeItem[]>;
+}) {
+  const { run: runAction, pending, toast, clearToast, needPin, dialogError, clearDialogError } =
+    useActionRunner();
+  const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
+
   const openDialog = (next: DialogState) => {
-    setDialogError(null);
+    clearDialogError();
     setDialog(next);
   };
+  const close = () => openDialog({ mode: "closed" });
 
   const run = (action: () => Promise<MenuActionResult>, closeOnSuccess = true) =>
-    startTransition(async () => {
-      const inDialog = dialog.mode !== "closed";
-      const result = await action().catch(() => null);
-      const fail = (message: string, pin: boolean) => {
-        setNeedPin(pin);
-        if (inDialog && !pin) setDialogError(message);
-        else {
-          if (pin) openDialog({ mode: "closed" });
-          setToast(message);
-        }
-      };
-      if (!result) return fail("Belum tersimpan. Sesi PIN mungkin habis, masukkan PIN lagi.", true);
-      if (!result.ok) return fail(result.error, Boolean(result.needPin));
-      setNeedPin(false);
-      setToast(result.message);
-      if (closeOnSuccess) openDialog({ mode: "closed" });
-      router.refresh();
+    runAction(action, {
+      inDialog: dialog.mode !== "closed",
+      onSuccess: closeOnSuccess ? close : undefined,
+      onPinLost: close,
     });
-
-  const close = () => openDialog({ mode: "closed" });
   const activeCount = menus.filter((m) => m.isActive).length;
   const iconButton =
     "grid size-11 place-items-center rounded-full text-brand-700 hover:bg-white/70 disabled:opacity-30";
@@ -166,6 +182,7 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
                   {m.price != null ? `Rp ${formatNumber(m.price)}` : "Harga belum diisi"}
                   {!m.isActive ? <Badge>Nonaktif</Badge> : null}
                 </span>
+                <RecipeSummary items={recipes[m.id] ?? []} ingredients={ingredients} />
               </button>
               <button
                 type="button"
@@ -206,11 +223,7 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
         {dialog.mode === "create" ? (
           <MenuForm pending={pending} onSubmit={(v) => run(() => createMenu(v))} />
         ) : null}
-        {dialogError ? (
-          <p role="alert" className="rounded-row bg-sambal-50 px-3 py-2 text-[14px] font-medium text-sambal-700">
-            {dialogError}
-          </p>
-        ) : null}
+        <DialogError message={dialogError} />
         <Button variant="plain" onClick={close} disabled={pending}>
           Batal
         </Button>
@@ -228,11 +241,10 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
                 run(() => updateMenu(id, v));
               }}
             />
-            {dialogError ? (
-              <p role="alert" className="rounded-row bg-sambal-50 px-3 py-2 text-[14px] font-medium text-sambal-700">
-                {dialogError}
-              </p>
-            ) : null}
+            <DialogError message={dialogError} />
+            <Button variant="secondary" disabled={pending} onClick={() => openDialog({ mode: "recipe", menu: dialog.menu })}>
+              Atur resep ({formatNumber((recipes[dialog.menu.id] ?? []).length)} bahan)
+            </Button>
             <Button
               variant="secondary"
               disabled={pending}
@@ -269,9 +281,7 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
       >
         {dialogError ? (
           <>
-            <p role="alert" className="rounded-row bg-sambal-50 px-3 py-2 text-[14px] font-medium text-sambal-700">
-              {dialogError}
-            </p>
+            <DialogError message={dialogError} />
             {dialog.mode === "delete" && dialog.menu.isActive ? (
               <Button
                 variant="secondary"
@@ -303,7 +313,31 @@ export function MenuManager({ menus }: { menus: Menu[] }) {
         </Button>
       </ConfirmDialog>
 
-      <Toast message={toast} onDone={() => setToast(null)} />
+      <ConfirmDialog
+        open={dialog.mode === "recipe"}
+        onClose={close}
+        title="Resep per porsi"
+        description={dialog.mode === "recipe" ? `Bahan yang dipakai untuk 1 porsi "${dialog.menu.name}".` : undefined}
+      >
+        {dialog.mode === "recipe" ? (
+          <RecipeEditor
+            key={dialog.menu.id}
+            initial={recipes[dialog.menu.id] ?? []}
+            ingredients={ingredients}
+            pending={pending}
+            onSave={(items) => {
+              const id = dialog.menu.id;
+              run(() => saveRecipe(id, items));
+            }}
+          />
+        ) : null}
+        <DialogError message={dialogError} />
+        <Button variant="plain" onClick={close} disabled={pending}>
+          Batal
+        </Button>
+      </ConfirmDialog>
+
+      <Toast message={toast} onDone={clearToast} />
     </section>
   );
 }

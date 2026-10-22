@@ -2,6 +2,16 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
+/** Pesan error di dalam dialog (toast tidak terlihat di atas lapisan modal). */
+export function DialogError({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="rounded-row bg-sambal-50 px-3 py-2 text-[14px] font-medium text-sambal-700">
+      {message}
+    </p>
+  );
+}
+
 /**
  * Dialog konfirmasi bertema kaca (STYLEGUIDE §7).
  * Memakai <dialog> bawaan browser: fokus otomatis terkunci di dalam, Esc menutup,

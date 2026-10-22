@@ -41,7 +41,7 @@
 > 2. Koneksi server-only ke Supabase + cek env (`/status`) — ✅ selesai
 > 3. PIN: halaman `/pin`, cookie bertanda tangan, proteksi halaman tulis, batas percobaan (T-13) — ✅ selesai
 > 4. Rekap harian tersimpan sebagai data `live` + memuat ulang tanggal yang sudah diisi (T-15) — ✅ selesai (diuji 9 langkah dengan Supabase asli)
-> 5. CRUD menu & resep (T-14) — dipecah: **5a menu** ✅ file siap & teruji (mock API) · **5b bahan, resep, setelan** belum
+> 5. CRUD menu & resep (T-14) — dipecah: **5a menu** ✅ selesai · **5b-1 bahan** ✅ · **5b-2 resep** ✅ · **5b-3 setelan** ✅ — file siap & teruji (mock API), dites bersamaan oleh Fillian
 > 6. Update docs
 
 - [ ] T-10 (F) **Spike Python di Vercel (hari pertama, go/no-go D-03):** fungsi `api/forecast.py` minimal dengan numpy + scikit-learn, deploy berdampingan dengan Next.js, ukur cold start, cek tidak bentrok dengan rute Next.js. Hasil dicatat di ARCHITECTURE §11
@@ -49,7 +49,7 @@
 - [x] T-12 (F) AppShell responsif (tab bar HP, sidebar ≥1024px) + komponen `ui/` dasar + tema glass (D-17)
 - [x] T-1B (F) UI pratinjau semua halaman dengan data simulasi & forecast sementara TypeScript (D-18); diuji di 4 ukuran layar, tanpa scroll horizontal
 - [x] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, `src/proxy.ts` (Next 16, pengganti middleware), rate limit — selesai, teruji di laptop & Vercel
-- [ ] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken`
+- [~] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken` — semua file siap; **sisa:** dites Fillian
 - [x] T-15 (F) Input rekap harian (stepper +/-, pilih tanggal via `?tanggal=`, tandai tutup, upsert ke `live`)
 - [ ] T-16 (F) `scripts/generate_demo_data.py`: data simulasi 120 hari dengan pola mingguan, gajian, dan noise; seed tetap; parameter siap dikalibrasi ke Q-04
 - [ ] T-17 (F) Package `forecasting/` v1: `ma7`, `snaive`, `ridge`, backtest WAPE, interval, pemilihan model + `pytest`
@@ -113,3 +113,6 @@
 - 2026-10-23 — Rekap live **tahap 4/6 selesai**: `lib/data/rekap.ts`, `actions/rekap.ts` (cek PIN + validasi server), `/rekap` dinamis dengan `?tanggal=`. Semua menu aktif disimpan termasuk 0; tutup = hapus rekap + tag `tutup`; tanggal hanya hari ini s.d. 30 hari lalu. Teruji: simpan, reload, ubah (upsert), tutup/buka, tanggal ngawur, sesi PIN habis.
 - 2026-10-23 — Revisi tahap 4 (permintaan Fillian saat testing): status "Ada perubahan yang belum disimpan" jadi merah; dialog konfirmasi saat pindah halaman (`ConfirmDialog` + `useLeaveGuard`: Simpan lalu pindah / Pindah tanpa menyimpan / Batal) + dialog browser saat refresh/tutup tab.
 - 2026-10-23 — Rekap live **tahap 5a selesai**: CRUD menu (`lib/data/menus.ts`, `actions/menus.ts`, `/pengaturan` + `menu-manager.tsx`): tambah, ubah nama/harga, aktif/nonaktif, urutan, hapus (hanya menu tanpa riwayat). Perbaikan `ConfirmDialog`: penutupan oleh kode tidak memicu onClose; error ditampilkan di dalam dialog (toast tertutup lapisan modal).
+- 2026-10-23 — Rekap live **tahap 5b-1 selesai**: kelola bahan baku (`lib/data/ingredients.ts`, `actions/ingredients.ts`, `ingredient-manager.tsx`). Satuan dikunci (UI + server) jika bahan dipakai di resep/waste; hapus hanya bahan tak terpakai; opsi "hitung dalam ekor" hanya untuk satuan potong. Refactor: `useActionRunner` + `DialogError` dipakai bersama Menu & Bahan.
+- 2026-10-23 — Rekap live **tahap 5b-2 selesai** (digabung dengan 5b-1 atas permintaan Fillian): resep per menu (`lib/data/recipes.ts`, `actions/recipes.ts`, `recipe-editor.tsx`, ringkasan resep di daftar menu). Simpan resep: upsert dulu lalu hapus baris yang dibuang (tidak hilang jika gagal di tengah). Takaran desimal (maks 2 angka); `formatQuantity` kini menampilkan desimal (0,5 kg).
+- 2026-10-23 — Rekap live **tahap 5b-3 selesai**: setelan cadangan % (0–100) & potong per ekor (1–20) (`lib/data/settings.ts`, `actions/settings.ts`, `settings-form.tsx`) dengan status merah + dialog pindah halaman. Zip gabungan 5b-1+5b-2+5b-3.

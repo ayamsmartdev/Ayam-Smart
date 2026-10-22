@@ -89,8 +89,26 @@ AI **tidak boleh lanjut ke langkah berikutnya** tanpa konfirmasi Fillian:
 3. Fillian laporan hasil ("udah jalan bro" / "ada bug X")
 4. Baru AI lanjut
 
-Kalau Fillian bilang **"sudah aku apply dan commit"** sebelum file yang sama diedit lagi, AI wajib
+Kalau Fillian bilang **"sudah aku apply dan commit"** sebelum file yang sama diedit lagi, AI
 **wajib re-fetch** file itu dari raw GitHub sebelum mengeditnya.
+
+### 4a. Pecah Perubahan Besar Menjadi Tahap Kecil
+
+Satu sesi AI bisa terputus di tengah jalan (limit, koneksi). Karena itu **task besar tidak boleh
+dikerjakan sekaligus**.
+
+- **Task besar** = menyentuh > 5 file, lintas beberapa fitur/halaman, desain skema baru, atau
+  integrasi lintas komponen (Next.js + Python + Supabase).
+- Sebelum mulai, AI menulis **rencana tahap** (3–6 tahap) dan menunggu persetujuan Fillian.
+  Contoh UI: (1) token & utilitas tema, (2) kerangka navigasi, (3) Beranda, (4) halaman lain, (5) docs.
+- **Satu tahap = satu commit yang bisa berdiri sendiri:** maksimal ±5–8 file, build tetap lolos,
+  aplikasi tetap jalan walau tahap berikutnya belum dikerjakan.
+- Di akhir setiap tahap AI **berhenti** dan menyerahkan: file + tabel lokasi, hasil cek
+  (type check/lint/build), commit message, dan **1 baris status tahap di `docs/TASKS.md`**
+  (mis. `T-10 tahap 2/4 selesai`). Lanjut ke tahap berikutnya hanya setelah Fillian konfirmasi.
+- Kalau sesi terputus, AI berikutnya melanjutkan dari status tahap di `TASKS.md`, bukan mengulang dari awal.
+- Instruksi tempo "gas terus" (`TASKS.md`) berarti **tidak menunggu tanggal sprint**, bukan melewati
+  titik konfirmasi per tahap.
 
 ---
 
@@ -229,3 +247,4 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 - [ ] Commit message sudah disiapkan
 - [ ] Tidak ada dead code / import tidak terpakai
 - [ ] Dokumen yang terdampak sudah diupdate (§8)
+- [ ] Untuk task besar: hanya **satu tahap** yang diserahkan, status tahap tercatat di `TASKS.md` (§4a)

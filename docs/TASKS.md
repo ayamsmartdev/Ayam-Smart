@@ -35,8 +35,17 @@
 
 ## Sprint 1 — Data & Forecast Inti (24–28 Okt)
 
+> **Prioritas (diputuskan 23 Okt): "Rekap harian live" dulu, spike Python (T-10) sesudahnya**,
+> supaya data nyata mulai terkumpul secepatnya. Rencana tahap (AGENTS §4a):
+> 1. Skema DB `0001_init.sql` (T-11) — ✅ file siap, tinggal dijalankan
+> 2. Koneksi server-only ke Supabase + cek env
+> 3. PIN: halaman `/pin`, cookie bertanda tangan, proteksi halaman tulis, batas percobaan (T-13)
+> 4. Rekap harian tersimpan sebagai data `live` + memuat ulang tanggal yang sudah diisi (T-15)
+> 5. CRUD menu & resep (T-14)
+> 6. Update docs
+
 - [ ] T-10 (F) **Spike Python di Vercel (hari pertama, go/no-go D-03):** fungsi `api/forecast.py` minimal dengan numpy + scikit-learn, deploy berdampingan dengan Next.js, ukur cold start, cek tidak bentrok dengan rute Next.js. Hasil dicatat di ARCHITECTURE §11
-- [ ] T-11 (F) Migrasi `0001_init.sql` (semua tabel ARCHITECTURE §4, RLS aktif) + seed menu, bahan, resep contoh
+- [~] T-11 (F) Migrasi `0001_init.sql` (semua tabel ARCHITECTURE §4, RLS aktif) + seed minimal (setelan default + bahan Ayam; **menu tidak di-seed**, diisi lewat CRUD). File siap & teruji di PGlite; **sisa:** dijalankan di SQL Editor Supabase
 - [x] T-12 (F) AppShell responsif (tab bar HP, sidebar ≥1024px) + komponen `ui/` dasar + tema glass (D-17)
 - [x] T-1B (F) UI pratinjau semua halaman dengan data simulasi & forecast sementara TypeScript (D-18); diuji di 4 ukuran layar, tanpa scroll horizontal
 - [ ] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, middleware, rate limit
@@ -97,3 +106,5 @@
 - 2026-10-23 — Push pertama (`13dd990`, author `ayamsmartdev`); deploy Vercel live; Cache Components dimatikan (D-16) (T-03, T-05).
 - 2026-10-23 — UI pratinjau selesai: tema warm + glass iOS + gradasi biru (D-17), 7 halaman dengan data simulasi (D-18), STYLEGUIDE ditulis ulang (T-12, T-1B, T-26).
 - 2026-10-23 — Perpindahan halaman di HP terasa lambat: penyebab `force-dynamic` + server di Washington. Diganti ISR 60 dtk + loading.tsx + FreshnessGuard + region `sin1` (D-19); tap tab ±0,9 dtk → ±0,1–0,2 dtk.
+- 2026-10-23 — Evaluasi: pembuatan UI melanggar AGENTS §4 (39 file sekaligus). Ditambahkan §4a: task besar dipecah jadi tahap kecil, 1 tahap = 1 commit, berhenti & konfirmasi tiap tahap.
+- 2026-10-23 — Prioritas diubah: Rekap harian live sebelum spike Python. Rekap live **tahap 1/6 selesai**: `supabase/migrations/0001_init.sql` (10 tabel, RLS, seed minimal) lolos uji PGlite. Project Supabase awalnya dibuat di Seoul; disarankan dibuat ulang di Singapura (masih kosong).

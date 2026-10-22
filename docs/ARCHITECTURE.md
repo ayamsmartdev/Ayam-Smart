@@ -338,3 +338,5 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | Supabase ter-pause | Aplikasi error saat presentasi | Input harian menjaga aktivitas; cek H-1 |
 | Zona waktu salah | Data masuk ke tanggal yang salah | Helper `date.ts` wajib; tidak memakai tanggal UTC |
 | Scope bertambah di tengah sprint | Jadwal mundur | Perubahan masuk backlog `TASKS.md`, diprioritaskan di demo sprint |
+
+| hapus aja ini perubahan cuma mau pamer lewat commit -m wkwk

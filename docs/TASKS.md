@@ -39,8 +39,8 @@
 > supaya data nyata mulai terkumpul secepatnya. Rencana tahap (AGENTS §4a):
 > 1. Skema DB `0001_init.sql` (T-11) — ✅ selesai (project Supabase dibuat ulang di Singapura)
 > 2. Koneksi server-only ke Supabase + cek env (`/status`) — ✅ selesai
-> 3. PIN: halaman `/pin`, cookie bertanda tangan, proteksi halaman tulis, batas percobaan (T-13) — ✅ file siap & teruji (mock API)
-> 4. Rekap harian tersimpan sebagai data `live` + memuat ulang tanggal yang sudah diisi (T-15)
+> 3. PIN: halaman `/pin`, cookie bertanda tangan, proteksi halaman tulis, batas percobaan (T-13) — ✅ selesai
+> 4. Rekap harian tersimpan sebagai data `live` + memuat ulang tanggal yang sudah diisi (T-15) — ✅ file siap & teruji (mock API)
 > 5. CRUD menu & resep (T-14)
 > 6. Update docs
 
@@ -48,9 +48,9 @@
 - [~] T-11 (F) Migrasi `0001_init.sql` (semua tabel ARCHITECTURE §4, RLS aktif) + seed minimal (setelan default + bahan Ayam; **menu tidak di-seed**, diisi lewat CRUD). File siap & teruji di PGlite; **sisa:** dijalankan di SQL Editor Supabase
 - [x] T-12 (F) AppShell responsif (tab bar HP, sidebar ≥1024px) + komponen `ui/` dasar + tema glass (D-17)
 - [x] T-1B (F) UI pratinjau semua halaman dengan data simulasi & forecast sementara TypeScript (D-18); diuji di 4 ukuran layar, tanpa scroll horizontal
-- [~] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, `src/proxy.ts` (Next 16, pengganti middleware), rate limit — **sisa:** tes di laptop & Vercel
+- [x] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, `src/proxy.ts` (Next 16, pengganti middleware), rate limit — selesai, teruji di laptop & Vercel
 - [ ] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken`
-- [ ] T-15 (F) Input rekap harian (stepper +/-, pilih tanggal, tandai tutup, upsert)
+- [~] T-15 (F) Input rekap harian (stepper +/-, pilih tanggal via `?tanggal=`, tandai tutup, upsert ke `live`) — **sisa:** tes dengan Supabase asli
 - [ ] T-16 (F) `scripts/generate_demo_data.py`: data simulasi 120 hari dengan pola mingguan, gajian, dan noise; seed tetap; parameter siap dikalibrasi ke Q-04
 - [ ] T-17 (F) Package `forecasting/` v1: `ma7`, `snaive`, `ridge`, backtest WAPE, interval, pemilihan model + `pytest`
 - [ ] T-18 (F) Integrasi: simpan rekap → panggil forecast → simpan `forecast_runs` & `forecasts`; tombol "Hitung ulang"; penanganan gagal
@@ -110,3 +110,5 @@
 - 2026-10-23 — Prioritas diubah: Rekap harian live sebelum spike Python. Rekap live **tahap 1/6 selesai**: `supabase/migrations/0001_init.sql` (10 tabel, RLS, seed minimal) lolos uji PGlite. Project Supabase awalnya dibuat di Seoul; disarankan dibuat ulang di Singapura (masih kosong).
 - 2026-10-23 — Supabase dibuat ulang di region Singapura, env lokal & Vercel diperbarui. Rekap live **tahap 2/6 selesai**: `lib/env.ts`, `lib/supabase-server.ts` (server-only), halaman `/status` (cek 10 tabel, tanpa menampilkan isi data).
 - 2026-10-23 — Rekap live **tahap 3/6 selesai**: PIN (`lib/pin-token.ts`, `lib/pin.ts`, `actions/pin.ts`, `/pin`, `src/proxy.ts`). Next.js 16 memakai `proxy.ts` (bukan `middleware.ts`). Cookie ikut menandatangani APP_PIN → ganti PIN = semua perangkat logout. Teruji: redirect, 5x salah → blokir 15 mnt, IP di-hash, cookie httpOnly/secure 30 hari, DB mati → fail-closed.
+- 2026-10-23 — Rekap live **tahap 4/6 selesai**: `lib/data/rekap.ts`, `actions/rekap.ts` (cek PIN + validasi server), `/rekap` dinamis dengan `?tanggal=`. Semua menu aktif disimpan termasuk 0; tutup = hapus rekap + tag `tutup`; tanggal hanya hari ini s.d. 30 hari lalu. Teruji: simpan, reload, ubah (upsert), tutup/buka, tanggal ngawur, sesi PIN habis.
+- 2026-10-23 — Revisi tahap 4 (permintaan Fillian saat testing): status "Ada perubahan yang belum disimpan" jadi merah; dialog konfirmasi saat pindah halaman (`ConfirmDialog` + `useLeaveGuard`: Simpan lalu pindah / Pindah tanpa menyimpan / Batal) + dialog browser saat refresh/tutup tab.

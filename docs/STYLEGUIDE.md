@@ -165,13 +165,15 @@ Semua di `src/components/`, ditulis dengan kelas Tailwind biasa dan menerima `cl
 | Komponen | File | Catatan |
 |---|---|---|
 | `Panel`, `PanelTitle` | `ui/panel.tsx` | `variant="hero"` untuk satu elemen utama per halaman |
-| `Button`, `LinkButton` | `ui/button.tsx` | `primary` (gradasi), `secondary` (putih + ring biru), `danger` (sambal), `plain` |
+| `Button`, `LinkButton` | `ui/button.tsx` | `primary` (gradasi), `secondary` (putih + ring biru), `danger` (sambal), `dangerSoft` (sambal lembut, untuk aksi berisiko sekunder), `plain` |
 | `Badge`, `SimulasiBadge` | `ui/badge.tsx` | `SimulasiBadge` wajib tampil selama data simulasi |
 | `GroupedList`, `ListRow` | `ui/grouped-list.tsx` | Daftar ala iOS; `href` menambah chevron |
 | `Stepper` | `ui/stepper.tsx` | Tombol bulat 44px + angka yang bisa diketik |
 | `Segmented` | `ui/segmented.tsx` | Pilihan 2–3 opsi |
 | `PageHeader` | `ui/page-header.tsx` | Large title + subjudul |
 | `Toast` | `ui/toast.tsx` | Di atas tab bar, hilang 3,5 detik |
+| `ConfirmDialog` | `ui/confirm-dialog.tsx` | `<dialog>` bawaan (fokus terkunci, Esc/klik luar = batal), kaca `glass-bar`, tombol disusun vertikal: utama → berisiko (`dangerSoft`) → `plain` |
+| `useLeaveGuard` | `hooks/use-leave-guard.ts` | Tahan klik link saat ada perubahan belum disimpan → tampilkan `ConfirmDialog`; refresh/tutup tab memakai dialog bawaan browser |
 | Ikon | `icons.tsx` | SVG garis 24px buatan sendiri, `currentColor` |
 | `BrandMark`, `BrandWordmark` | `layout/brand-mark.tsx` | Logo sementara (squircle biru + paha ayam) |
 | `AppShell`, `SidebarNav`, `TabBar` | `layout/` | Kerangka responsif |
@@ -191,6 +193,7 @@ Semua di `src/components/`, ditulis dengan kelas Tailwind biasa dan menerima `cl
 - Fokus keyboard terlihat: outline biru 2px (global `:focus-visible`).
 - Tombol ikon punya `aria-label`; navigasi aktif memakai `aria-current="page"`.
 - Status tidak hanya dibedakan warna (contoh: "Naik 5%", bukan hanya hijau).
+- Status **belum disimpan** selalu merah tebal (`sambal-700`) dengan titik penanda, dan form yang punya status ini wajib memakai `useLeaveGuard`.
 - Segmented & chip pilihan memakai `role="radio"` / `aria-pressed`.
 
 ---

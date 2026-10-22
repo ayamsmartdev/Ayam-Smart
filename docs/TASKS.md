@@ -37,8 +37,8 @@
 
 > **Prioritas (diputuskan 23 Okt): "Rekap harian live" dulu, spike Python (T-10) sesudahnya**,
 > supaya data nyata mulai terkumpul secepatnya. Rencana tahap (AGENTS §4a):
-> 1. Skema DB `0001_init.sql` (T-11) — ✅ file siap, tinggal dijalankan
-> 2. Koneksi server-only ke Supabase + cek env
+> 1. Skema DB `0001_init.sql` (T-11) — ✅ selesai (project Supabase dibuat ulang di Singapura)
+> 2. Koneksi server-only ke Supabase + cek env (`/status`) — ✅ file siap, tinggal dites dengan Supabase asli
 > 3. PIN: halaman `/pin`, cookie bertanda tangan, proteksi halaman tulis, batas percobaan (T-13)
 > 4. Rekap harian tersimpan sebagai data `live` + memuat ulang tanggal yang sudah diisi (T-15)
 > 5. CRUD menu & resep (T-14)
@@ -108,3 +108,4 @@
 - 2026-10-23 — Perpindahan halaman di HP terasa lambat: penyebab `force-dynamic` + server di Washington. Diganti ISR 60 dtk + loading.tsx + FreshnessGuard + region `sin1` (D-19); tap tab ±0,9 dtk → ±0,1–0,2 dtk.
 - 2026-10-23 — Evaluasi: pembuatan UI melanggar AGENTS §4 (39 file sekaligus). Ditambahkan §4a: task besar dipecah jadi tahap kecil, 1 tahap = 1 commit, berhenti & konfirmasi tiap tahap.
 - 2026-10-23 — Prioritas diubah: Rekap harian live sebelum spike Python. Rekap live **tahap 1/6 selesai**: `supabase/migrations/0001_init.sql` (10 tabel, RLS, seed minimal) lolos uji PGlite. Project Supabase awalnya dibuat di Seoul; disarankan dibuat ulang di Singapura (masih kosong).
+- 2026-10-23 — Supabase dibuat ulang di region Singapura, env lokal & Vercel diperbarui. Rekap live **tahap 2/6 selesai**: `lib/env.ts`, `lib/supabase-server.ts` (server-only), halaman `/status` (cek 10 tabel, tanpa menampilkan isi data).

@@ -39,7 +39,7 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 | Validasi | zod | Validasi input di server |
 | Database | Supabase (PostgreSQL), region Singapore | Free plan (D-02, D-13) |
 | Forecast | Python 3.12: numpy, scikit-learn, FastAPI | Vercel Python Function (D-03); versi dikunci di `.python-version` |
-| Hosting | Vercel | Hobby plan, keputusan klien (D-13) |
+| Hosting | Vercel, region fungsi **Singapura (`sin1`)** via `vercel.json` | Hobby plan, keputusan klien (D-13); region dekat pengguna & Supabase (D-19) |
 | Repo & IDE | GitHub (public, akun AYAMSMART) + VS Code lokal | D-09, D-15 |
 
 ---
@@ -69,7 +69,8 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 └─ src/
    ├─ middleware.ts                 # proteksi halaman tulis dengan cookie PIN
    ├─ app/                          # rute berbahasa Indonesia (D-18)
-   │  ├─ layout.tsx                 # font, latar, AppShell; dynamic = "force-dynamic"
+   │  ├─ layout.tsx                 # font, latar, AppShell, FreshnessGuard; revalidate = 60 (D-19)
+   │  ├─ loading.tsx                # kerangka halaman saat rute masih dimuat
    │  ├─ globals.css                # token tema, utilitas glass/glass-bar
    │  ├─ page.tsx                   # Beranda                   ✅ pratinjau
    │  ├─ prediksi/                  # Prediksi per menu         ✅ pratinjau
@@ -277,7 +278,8 @@ Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fil
   menguasai GitHub (dan Gmail di belakangnya) menguasai Vercel dan Supabase. 2FA di GitHub dan Gmail wajib.
 - Repo: `ayamsmartdev/Ayam-Smart` (public, D-15). Tidak boleh berisi secret maupun data nyata klien.
 
-**Deploy:** push ke `main` → Vercel build otomatis.
+**Deploy:** push ke `main` → Vercel build otomatis. Region fungsi `sin1` (Singapura) diatur di `vercel.json`;
+project Supabase juga di Singapura agar server dan database berdekatan.
 
 **Batasan platform yang harus diingat**
 - Vercel Hobby: deploy dari commit author yang bukan pemilik akun diblokir pada repo private. Repo ini
@@ -322,6 +324,7 @@ Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fil
 | D-16 | 23 Okt 2026 | Cache Components dan Partial Prefetching Next.js 16 dimatikan (hapus `cacheComponents` & `partialPrefetching` dari `next.config.ts`) | Hampir semua halaman dinamis (cookie mode demo/PIN, data harus selalu terbaru); model caching baru menambah aturan Suspense/`"use cache"` tanpa manfaat berarti untuk tenggat 2 minggu | Berlaku |
 | D-17 | 23 Okt 2026 | Tema visual: latar hangat Nasi → Langit, kaca ala iOS (`glass`, `glass-bar`), gradasi biru brand, aksen kriuk (keemasan) & sambal (merah), font Plus Jakarta Sans; detail di `STYLEGUIDE.md` | Permintaan klien/Fillian: minimalis, nyaman di mata, warm tapi cocok dengan gradasi biru, glassmorphism iOS. Warna aksen diambil dari dunia ayam geprek agar tidak terasa template | Berlaku |
 | D-18 | 23 Okt 2026 | UI dibangun lebih dulu sebagai **pratinjau** dengan data simulasi (`lib/demo-data.ts`) dan forecast sementara TypeScript (`lib/preview-forecast.ts`: rata-rata hari yang sama 4 minggu, error = WAPE backtest 14 hari). Rute berbahasa Indonesia (`/prediksi`, `/bahan`, `/rekap`, `/waste`, `/pengaturan`, `/import`, `/lainnya`). Aksi simpan menampilkan pesan pratinjau yang jujur | Klien bisa melihat dan memberi masukan lebih awal (Agile). Forecast sementara tidak menggantikan D-03; kontrak §6.1 tetap. Setelah Supabase & Python siap, sumber data diganti tanpa mengubah halaman | Berlaku (sementara) |
+| D-19 | 23 Okt 2026 | Rendering & lokasi: halaman pratinjau **statis ISR** (`revalidate = 60` di layout) + `loading.tsx` + `FreshnessGuard` (muat ulang sekali jika tanggal halaman ≠ tanggal WIB di perangkat); region fungsi Vercel `sin1` | Sebelumnya `force-dynamic` + region default `iad1` (Washington): tiap tap tab ±0,9 dtk (uji jeda 300 ms). Sesudah: ±0,1–0,2 dtk karena halaman di-prefetch penuh dari CDN. Saat halaman membaca cookie/Supabase dan jadi dinamis: pertahankan `loading.tsx`, region `sin1`, dan kueri seringan mungkin | Berlaku |
 
 ---
 

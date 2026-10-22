@@ -96,3 +96,4 @@
 - 2026-10-23 — Laptop: Node 24.22.1, npm 11.19.1, Python 3.12.10 (`py -3.12`), Git 2.56. Next.js 16.4.2 diinisialisasi, `npm run dev` OK (T-03).
 - 2026-10-23 — Push pertama (`13dd990`, author `ayamsmartdev`); deploy Vercel live; Cache Components dimatikan (D-16) (T-03, T-05).
 - 2026-10-23 — UI pratinjau selesai: tema warm + glass iOS + gradasi biru (D-17), 7 halaman dengan data simulasi (D-18), STYLEGUIDE ditulis ulang (T-12, T-1B, T-26).
+- 2026-10-23 — Perpindahan halaman di HP terasa lambat: penyebab `force-dynamic` + server di Washington. Diganti ISR 60 dtk + loading.tsx + FreshnessGuard + region `sin1` (D-19); tap tab ±0,9 dtk → ±0,1–0,2 dtk.

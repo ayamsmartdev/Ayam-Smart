@@ -208,7 +208,8 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   Aksi simpan hanya menampilkan pesan pratinjau.
 - **Sudah jadi:** paket dokumentasi (`AGENTS.md`, `CLAUDE.md`, `README.md`, `.env.example`, `.python-version`, `docs/*`).
   Python 3.12.10 terpasang di laptop (dipanggil dengan `py -3.12`; `python` default di laptop = 3.15, jangan dipakai).
-- **Deploy:** https://ayam-smart.vercel.app (auto-deploy dari `main`). Cache Components dimatikan (D-16).
+- **Deploy:** https://ayam-smart.vercel.app (auto-deploy dari `main`), region fungsi `sin1`. Cache Components dimatikan (D-16).
+  Halaman statis ISR 60 dtk + FreshnessGuard (D-19).
 - **Berikutnya:** project Supabase + `.env.local` (T-04), lalu spike Python (T-10). Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
   (keduanya login via GitHub `ayamsmartdev`) sudah dibuat. 2FA belum diaktifkan (T-02).

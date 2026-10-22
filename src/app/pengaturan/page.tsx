@@ -1,54 +1,37 @@
-import { Badge } from "@/components/ui/badge";
-import { GroupedList, ListRow } from "@/components/ui/grouped-list";
+import { LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
-import { DEMO_INGREDIENTS, DEMO_MENUS, DEMO_RECIPES, DEMO_SETTINGS } from "@/lib/demo-data";
-import { formatQuantity } from "@/lib/format";
+import { Panel } from "@/components/ui/panel";
+import { getAllMenus } from "@/lib/data/menus";
+import { MenuManager } from "./menu-manager";
 
-export default function PengaturanPage() {
-  const ingredient = (id: string) => DEMO_INGREDIENTS.find((i) => i.id === id);
+// Membaca database & dilindungi PIN → selalu dirender saat dibuka (D-19).
+export const dynamic = "force-dynamic";
+
+export default async function PengaturanPage() {
+  let menus;
+  try {
+    menus = await getAllMenus();
+  } catch {
+    return (
+      <>
+        <PageHeader title="Menu & resep" />
+        <Panel>
+          <p className="text-[16px] font-semibold">Database belum bisa dihubungi</p>
+          <p className="mt-1 text-[15px] text-ink-soft">Coba muat ulang sebentar lagi, atau cek halaman Status.</p>
+          <LinkButton href="/status" variant="secondary" className="mt-4">
+            Buka status sistem
+          </LinkButton>
+        </Panel>
+      </>
+    );
+  }
 
   return (
     <>
-      <PageHeader title="Menu & resep" subtitle="Contoh sementara, menunggu menu asli warung" />
-      <div className="space-y-6">
-        <GroupedList title="Menu dan bahan per porsi">
-          {DEMO_MENUS.map((m) => (
-            <ListRow
-              key={m.id}
-              title={m.name}
-              subtitle={
-                <span className="mt-1.5 flex flex-wrap gap-1.5">
-                  {DEMO_RECIPES.filter((r) => r.menuId === m.id).map((r) => {
-                    const ing = ingredient(r.ingredientId);
-                    if (!ing) return null;
-                    return (
-                      <Badge key={r.ingredientId} tone={ing.isChicken ? "kriuk" : "neutral"}>
-                        {ing.name} {formatQuantity(r.qtyPerPortion, ing.unit)}
-                      </Badge>
-                    );
-                  })}
-                </span>
-              }
-            />
-          ))}
-        </GroupedList>
-
-        <GroupedList
-          title="Setelan perhitungan"
-          footer="Setelan bisa diubah setelah database tersambung."
-        >
-          <ListRow
-            title="Cadangan stok"
-            subtitle="Ditambahkan ke kebutuhan bahan"
-            trailing={<span className="text-[16px] font-semibold">{DEMO_SETTINGS.bufferPct}%</span>}
-          />
-          <ListRow
-            title="Potong per ekor ayam"
-            subtitle="Untuk mengubah potong menjadi ekor"
-            trailing={<span className="text-[16px] font-semibold">{DEMO_SETTINGS.piecesPerChicken} potong</span>}
-          />
-        </GroupedList>
-      </div>
+      <PageHeader title="Menu & resep" subtitle="Daftar menu warung yang direkap setiap hari" />
+      <MenuManager
+        menus={menus.map(({ id, name, price, isActive }) => ({ id, name, price, isActive }))}
+      />
     </>
   );
 }

@@ -22,19 +22,32 @@ export function ConfirmDialog({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // True saat dialog ditutup oleh kode (prop open → false), bukan oleh pengguna.
+  // Event "close" dari penutupan oleh kode tidak boleh memanggil onClose: kalau tidak,
+  // berpindah dari satu dialog ke dialog lain akan ikut membatalkan dialog yang baru.
+  const closingByProp = useRef(false);
 
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
     if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (!open && dialog.open) {
+      closingByProp.current = true;
+      dialog.close();
+    }
   }, [open]);
 
   return (
     <dialog
       ref={ref}
       aria-labelledby="confirm-title"
-      onClose={onClose}
+      onClose={() => {
+        if (closingByProp.current) {
+          closingByProp.current = false;
+          return;
+        }
+        onClose();
+      }}
       // Klik di area gelap di luar kotak = batal.
       onClick={(e) => {
         if (e.target === ref.current) onClose();

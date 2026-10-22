@@ -192,7 +192,17 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   `new Date().toISOString().slice(0, 10)` karena itu tanggal UTC, bisa salah hari sebelum jam 07.00 WIB.
 - **Secret hanya di env server.** Jangan pernah memberi prefix `NEXT_PUBLIC_` pada key apa pun.
   Jangan commit file `.env*` selain `.env.example`.
-- **Setiap aksi yang mengubah data** wajib divalidasi di server dan mengecek PIN, walaupun halaman sudah dilindungi.
+- **Setiap aksi yang mengubah data** wajib divalidasi di server dan memanggil `isPinVerified()` (`src/lib/pin.ts`),
+  walaupun halaman sudah dilindungi `src/proxy.ts`. Validasi ditulis manual (`clean*Input` di `src/lib/data/*`), tanpa zod (D-23).
+- **Bentuk hasil Server Action:** `{ ok: true, message }` atau `{ ok: false, error, needPin? }`. Terjemahkan kode error
+  PostgreSQL (`23505` nama dobel, `23503` masih dipakai) ke kalimat Bahasa Indonesia; jangan tampilkan pesan mentah.
+- **Panggil action dari client lewat `useActionRunner`** (atau minimal `.catch(() => null)`): saat sesi PIN habis,
+  proxy memotong request dan promise gagal/kosong. Hasil kosong = anggap PIN habis → tampilkan "Masukkan PIN lagi".
+- **Error saat dialog terbuka tampil di dalam dialog (`DialogError`)**, bukan toast — toast tertutup lapisan modal (D-24).
+- **Form dengan status "belum disimpan" wajib `useLeaveGuard`**; pindah halaman setelah konfirmasi pakai `router.push`.
+- **Tulis berurutan agar tidak kehilangan data:** upsert dulu, baru hapus baris yang dibuang (contoh `saveRecipe`).
+- **Halaman yang membaca DB/cookie:** `export const dynamic = "force-dynamic"` + kueri seringan mungkin (D-19).
+- `src/lib/pin-token.ts` dipakai proxy, jadi **tidak boleh** mengimpor `server-only` atau Supabase.
 - **Baris yang tidak ada ≠ nol.** Hari tanpa rekap = "tidak ada data", bukan penjualan 0.
 - **UI Bahasa Indonesia**, angka dan tanggal format `id-ID`.
 - **Data simulasi wajib berlabel "Simulasi"** di UI.
@@ -218,20 +228,27 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 
 > Snapshot kondisi proyek SEKARANG. Update setiap akhir sesi. Harus tetap benar jika dibaca tanpa konteks chat.
 
-**Terakhir diupdate:** 23 Oktober 2026
+**Terakhir diupdate:** 23 Oktober 2026 (rangkaian "Rekap harian live" selesai, D-20)
 
-- **Status:** UI pratinjau selesai (D-17, D-18): Beranda, Prediksi, Bahan, Rekap, Waste, Lainnya,
-  Menu & resep, Import. Semua angka dari **data simulasi** (`src/lib/demo-data.ts`) dan forecast
-  sementara TypeScript (`src/lib/preview-forecast.ts`). Belum ada database, PIN, maupun Python.
-  Aksi simpan hanya menampilkan pesan pratinjau.
-- **Sudah jadi:** paket dokumentasi (`AGENTS.md`, `CLAUDE.md`, `README.md`, `.env.example`, `.python-version`, `docs/*`).
-  Python 3.12.10 terpasang di laptop (dipanggil dengan `py -3.12`; `python` default di laptop = 3.15, jangan dipakai).
+- **Sudah data nyata (dataset `live`, Supabase region Singapura):**
+  - `/rekap` — rekap harian semua menu aktif (termasuk 0), mode warung tutup, pilih tanggal s.d. 30 hari lalu.
+  - `/pengaturan` — kelola menu (tambah/ubah/urutkan/nonaktifkan/hapus), bahan baku (satuan terkunci bila dipakai),
+    resep per porsi, setelan `buffer_pct` & `pieces_per_chicken`.
+  - PIN (D-21): `/pin`, cookie 30 hari, rate limit, proxy + cek di setiap action. `/status` untuk cek koneksi DB.
+- **Masih simulasi** (`src/lib/demo-data.ts` + forecast TypeScript `src/lib/preview-forecast.ts`, berlabel Simulasi):
+  Beranda, Prediksi, Bahan, Waste (simpan waste belum ke DB), Import (baru unduh template).
+- **Belum ada:** Python forecast (T-10), simpan food waste, mode demo/live, import CSV, seed data simulasi di DB.
+- **Database:** skema di `supabase/migrations/0001_init.sql` (10 tabel, RLS tanpa policy). Isi tabel live = data asli
+  klien → **jangan pernah dimasukkan ke repo** (repo publik).
 - **Deploy:** https://ayam-smart.vercel.app (auto-deploy dari `main`), region fungsi `sin1`. Cache Components dimatikan (D-16).
-  Halaman statis ISR 60 dtk + FreshnessGuard (D-19).
-- **Berikutnya:** project Supabase + `.env.local` (T-04), lalu spike Python (T-10). Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
+  Halaman pratinjau ISR 60 dtk + FreshnessGuard (D-19); halaman DB `force-dynamic`. Env di Vercel: `SUPABASE_URL`,
+  `SUPABASE_SECRET_KEY`, `APP_PIN`, `SESSION_SECRET`.
+- **Lokal:** Python 3.12.10 terpasang (dipanggil `py -3.12`; `python` default = 3.15, jangan dipakai).
+- **Berikutnya:** pilih salah satu — spike Python di Vercel (T-10, menguji D-03) atau sambungkan Beranda/Bahan/Waste ke
+  data live. Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
-  (keduanya login via GitHub `ayamsmartdev`) sudah dibuat. 2FA belum diaktifkan (T-02).
-- **Keputusan yang belum final:** spike Python di Vercel (D-03) belum diuji; PIN (D-06) menunggu persetujuan klien.
+  (keduanya login via GitHub `ayamsmartdev`). 2FA belum diaktifkan (T-02).
+- **Keputusan yang belum final:** spike Python di Vercel (D-03) belum diuji; PIN (D-06) sudah jalan tapi menunggu persetujuan klien (Q-05).
 - **Masalah diketahui:** belum ada.
 - **Menunggu klien:** lihat `docs/PRD.md` §8 Pertanyaan Terbuka.
 

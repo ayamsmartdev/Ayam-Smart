@@ -29,8 +29,8 @@
 - [x] T-01 Gmail AYAMSMART dibuat
 - [~] T-02 (F) Akun GitHub `ayamsmartdev` (login Google), Vercel Hobby & Supabase Free (login GitHub) sudah dibuat. **Sisa:** aktifkan 2FA GitHub & Gmail (authenticator), simpan recovery code
 - [x] T-03 (F) Repo public `ayamsmartdev/Ayam-Smart` (D-15); Next.js 16.4.2 diinisialisasi; docs, `.gitignore`, `.python-version` ter-commit; push pertama atas nama `ayamsmartdev`
-- [~] T-04 (F) Buat project Supabase (region Singapore); simpan URL & secret key ke `.env.local` dan Vercel
-- [~] T-05 (F) Repo terhubung ke Vercel, deploy pertama live di https://ayam-smart.vercel.app. **Sisa:** isi env vars Supabase; kirim link ke Julius
+- [x] T-04 (F) Project Supabase region Singapura; URL & secret key di `.env.local` dan Vercel
+- [~] T-05 (F) Repo terhubung ke Vercel, live di https://ayam-smart.vercel.app, env vars Supabase & PIN terisi. **Sisa:** kirim link ke Julius
 - [ ] T-06 (F) Kirim ke Julius: pertanyaan terbuka PRD §8 (Q-01–Q-11)
 
 ## Sprint 1 — Data & Forecast Inti (24–28 Okt)
@@ -41,15 +41,19 @@
 > 2. Koneksi server-only ke Supabase + cek env (`/status`) — ✅ selesai
 > 3. PIN: halaman `/pin`, cookie bertanda tangan, proteksi halaman tulis, batas percobaan (T-13) — ✅ selesai
 > 4. Rekap harian tersimpan sebagai data `live` + memuat ulang tanggal yang sudah diisi (T-15) — ✅ selesai (diuji 9 langkah dengan Supabase asli)
-> 5. CRUD menu & resep (T-14) — dipecah: **5a menu** ✅ selesai · **5b-1 bahan** ✅ · **5b-2 resep** ✅ · **5b-3 setelan** ✅ — file siap & teruji (mock API), dites bersamaan oleh Fillian
-> 6. Update docs
+> 5. CRUD menu & resep (T-14) — dipecah: **5a menu** ✅ · **5b-1 bahan** ✅ · **5b-2 resep** ✅ · **5b-3 setelan** ✅ — dites Fillian dengan Supabase asli
+> 6. Update docs (ARCHITECTURE D-20–D-24, STYLEGUIDE, AGENTS §9 & §11) — ✅ selesai
+>
+> **Rangkaian "Rekap harian live" selesai.** Data nyata bisa mulai dikumpulkan.
+> **Berikutnya (pilih satu, konfirmasi Fillian):** (a) T-10 spike Python — menentukan go/no-go D-03 dan membuka T-17/T-18;
+> (b) sambungkan Waste ke DB (T-21) + Beranda/Bahan ke data live.
 
 - [ ] T-10 (F) **Spike Python di Vercel (hari pertama, go/no-go D-03):** fungsi `api/forecast.py` minimal dengan numpy + scikit-learn, deploy berdampingan dengan Next.js, ukur cold start, cek tidak bentrok dengan rute Next.js. Hasil dicatat di ARCHITECTURE §11
-- [~] T-11 (F) Migrasi `0001_init.sql` (semua tabel ARCHITECTURE §4, RLS aktif) + seed minimal (setelan default + bahan Ayam; **menu tidak di-seed**, diisi lewat CRUD). File siap & teruji di PGlite; **sisa:** dijalankan di SQL Editor Supabase
+- [x] T-11 (F) Migrasi `0001_init.sql` (semua tabel ARCHITECTURE §4, RLS aktif) + seed minimal (setelan default + bahan Ayam; **menu tidak di-seed**, diisi lewat CRUD). Sudah dijalankan di Supabase
 - [x] T-12 (F) AppShell responsif (tab bar HP, sidebar ≥1024px) + komponen `ui/` dasar + tema glass (D-17)
 - [x] T-1B (F) UI pratinjau semua halaman dengan data simulasi & forecast sementara TypeScript (D-18); diuji di 4 ukuran layar, tanpa scroll horizontal
 - [x] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, `src/proxy.ts` (Next 16, pengganti middleware), rate limit — selesai, teruji di laptop & Vercel
-- [~] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken` — semua file siap; **sisa:** dites Fillian
+- [x] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken` — teruji dengan Supabase asli
 - [x] T-15 (F) Input rekap harian (stepper +/-, pilih tanggal via `?tanggal=`, tandai tutup, upsert ke `live`)
 - [ ] T-16 (F) `scripts/generate_demo_data.py`: data simulasi 120 hari dengan pola mingguan, gajian, dan noise; seed tetap; parameter siap dikalibrasi ke Q-04
 - [ ] T-17 (F) Package `forecasting/` v1: `ma7`, `snaive`, `ridge`, backtest WAPE, interval, pemilihan model + `pytest`
@@ -116,3 +120,4 @@
 - 2026-10-23 — Rekap live **tahap 5b-1 selesai**: kelola bahan baku (`lib/data/ingredients.ts`, `actions/ingredients.ts`, `ingredient-manager.tsx`). Satuan dikunci (UI + server) jika bahan dipakai di resep/waste; hapus hanya bahan tak terpakai; opsi "hitung dalam ekor" hanya untuk satuan potong. Refactor: `useActionRunner` + `DialogError` dipakai bersama Menu & Bahan.
 - 2026-10-23 — Rekap live **tahap 5b-2 selesai** (digabung dengan 5b-1 atas permintaan Fillian): resep per menu (`lib/data/recipes.ts`, `actions/recipes.ts`, `recipe-editor.tsx`, ringkasan resep di daftar menu). Simpan resep: upsert dulu lalu hapus baris yang dibuang (tidak hilang jika gagal di tengah). Takaran desimal (maks 2 angka); `formatQuantity` kini menampilkan desimal (0,5 kg).
 - 2026-10-23 — Rekap live **tahap 5b-3 selesai**: setelan cadangan % (0–100) & potong per ekor (1–20) (`lib/data/settings.ts`, `actions/settings.ts`, `settings-form.tsx`) dengan status merah + dialog pindah halaman. Zip gabungan 5b-1+5b-2+5b-3.
+- 2026-10-23 — Tahap 5b-1/5b-2/5b-3 lolos uji Fillian dengan Supabase asli (T-14). Rekap live **tahap 6/6 selesai**: docs diselaraskan dengan kode (struktur folder nyata, §8 keamanan, D-20–D-24, aturan kode baru di AGENTS §9, §11 ditulis ulang). Rangkaian "Rekap harian live" selesai.

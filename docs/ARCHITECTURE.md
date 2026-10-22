@@ -36,7 +36,8 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 | Styling | Tailwind CSS v4 murni | Tanpa component library (D-01); tema & token di `STYLEGUIDE.md` (D-17) |
 | Font | Plus Jakarta Sans Variable (`@fontsource-variable/plus-jakarta-sans`) | Di-host sendiri, tanpa panggilan Google Fonts saat build |
 | Grafik | Recharts 3 | Satu-satunya library UI tambahan |
-| Validasi | zod | Validasi input di server |
+| Data access | `@supabase/supabase-js` 2.x, hanya di modul `server-only` | D-05 |
+| Validasi | Manual di server (`clean*Input` di `src/lib/data/*`) | Tanpa zod, agar dependency tetap ringan (D-23) |
 | Database | Supabase (PostgreSQL), region Singapore | Free plan (D-02, D-13) |
 | Forecast | Python 3.12: numpy, scikit-learn, FastAPI | Vercel Python Function (D-03); versi dikunci di `.python-version` |
 | Hosting | Vercel, region fungsi **Singapura (`sin1`)** via `vercel.json` | Hobby plan, keputusan klien (D-13); region dekat pengguna & Supabase (D-19) |
@@ -67,39 +68,46 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 ├─ supabase/
 │  └─ migrations/                   # 0001_init.sql, dst. Dijalankan berurutan
 └─ src/
-   ├─ middleware.ts                 # proteksi halaman tulis dengan cookie PIN
+   ├─ proxy.ts                      # Next 16 "proxy" (pengganti middleware): halaman tulis → /pin (D-21)
    ├─ app/                          # rute berbahasa Indonesia (D-18)
    │  ├─ layout.tsx                 # font, latar, AppShell, FreshnessGuard; revalidate = 60 (D-19)
    │  ├─ loading.tsx                # kerangka halaman saat rute masih dimuat
    │  ├─ globals.css                # token tema, utilitas glass/glass-bar
-   │  ├─ page.tsx                   # Beranda                   ✅ pratinjau
-   │  ├─ prediksi/                  # Prediksi per menu         ✅ pratinjau
-   │  ├─ bahan/                     # Rekomendasi bahan baku    ✅ pratinjau
-   │  ├─ rekap/                     # Rekap harian       (PIN)  ✅ pratinjau
-   │  ├─ waste/                     # Food waste         (PIN)  ✅ pratinjau
-   │  ├─ lainnya/                   # Menu tambahan (HP)        ✅
-   │  ├─ pengaturan/                # Menu, resep, setelan (PIN) ✅ pratinjau (baca saja)
-   │  ├─ import/                    # Import CSV         (PIN)  ✅ template; unggah belum
-   │  └─ pin/                       # Form PIN                  belum
-   ├─ actions/                      # Server Actions (semua tulis data ada di sini) — belum
+   │  ├─ page.tsx                   # Beranda                         simulasi
+   │  ├─ prediksi/                  # Prediksi per menu               simulasi
+   │  ├─ bahan/                     # Rekomendasi bahan baku          simulasi
+   │  ├─ rekap/                     # Rekap harian            (PIN)   ✅ data nyata (live)
+   │  ├─ waste/                     # Food waste              (PIN)   simulasi
+   │  ├─ pengaturan/                # Menu, bahan, resep, setelan (PIN) ✅ data nyata
+   │  │  ├─ menu-manager.tsx  ingredient-manager.tsx  recipe-editor.tsx  settings-form.tsx
+   │  ├─ import/                    # Import CSV              (PIN)   template saja; unggah belum
+   │  ├─ lainnya/                   # Menu tambahan (HP)
+   │  ├─ pin/                       # Form PIN                        ✅
+   │  └─ status/                    # Cek koneksi 10 tabel (tanpa isi data, tidak di navigasi) ✅
+   ├─ actions/                      # Server Actions — SEMUA penulisan data, masing-masing cek PIN sendiri
+   │  ├─ pin.ts  rekap.ts  menus.ts  ingredients.ts  recipes.ts  settings.ts
    ├─ components/
    │  ├─ icons.tsx                  # ikon SVG buatan sendiri
-   │  ├─ ui/                        # Panel, Button, Badge, GroupedList, Stepper, Segmented, PageHeader, Toast
+   │  ├─ ui/                        # Panel, Button, Badge, GroupedList, Stepper, Segmented, PageHeader,
+   │  │                             # Toast, ConfirmDialog + DialogError
+   │  ├─ hooks/                     # useActionRunner (aksi + error + PIN habis), useLeaveGuard (D-24)
    │  ├─ charts/                    # SalesChart (Recharts)
-   │  └─ layout/                    # AppShell, SidebarNav, TabBar, BrandMark
+   │  └─ layout/                    # app-shell, nav (sidebar + tab bar), brand-mark, freshness-guard
    └─ lib/
-      ├─ cn.ts                      # gabung class
-      ├─ date.ts                    # todayWIB(), addDays(), format tanggal id-ID        ✅
-      ├─ format.ts                  # format angka & satuan id-ID                        ✅
-      ├─ recommend.ts               # rumus rekomendasi bahan (§7)                       ✅
-      ├─ demo-data.ts               # DATA SIMULASI sementara (menu, resep, penjualan)   ✅ sementara
-      ├─ preview-forecast.ts        # forecast pratinjau TypeScript (D-18)               ✅ sementara
-      ├─ preview.ts                 # penyusun angka pratinjau untuk semua halaman       ✅ sementara
-      ├─ supabase-server.ts         # client Supabase server-only (import 'server-only')  belum
-      ├─ pin.ts                     # verifikasi PIN, tanda tangan cookie, rate limit     belum
-      ├─ dataset.ts                 # baca mode demo/live dari cookie                     belum
-      ├─ forecast-client.ts         # panggil Python + simpan hasil                       belum
-      └─ csv.ts                     # parse & validasi CSV                                belum
+      ├─ cn.ts  date.ts  format.ts  # util; tanggal selalu WIB lewat date.ts
+      ├─ env.ts                     # requireEnv(), server-only
+      ├─ supabase-server.ts         # client Supabase server-only (secret key)                  ✅
+      ├─ pin-token.ts               # tanda tangan/verifikasi cookie PIN (TANPA server-only: dipakai proxy) ✅
+      ├─ pin.ts                     # isPinVerified(), cek PIN, rate limit (server-only)         ✅
+      ├─ data/                      # baca & validasi per domain (server-only)                   ✅
+      │  ├─ rekap.ts  menus.ts  ingredients.ts  recipes.ts  settings.ts
+      ├─ recommend.ts               # rumus rekomendasi bahan (§7)
+      ├─ demo-data.ts               # DATA SIMULASI (Beranda/Prediksi/Bahan/Waste)               sementara
+      ├─ preview-forecast.ts        # forecast pratinjau TypeScript (D-18)                       sementara
+      ├─ preview.ts                 # penyusun angka pratinjau                                  sementara
+      ├─ dataset.ts                 # baca mode demo/live dari cookie                            belum
+      ├─ forecast-client.ts         # panggil Python + simpan hasil                              belum
+      └─ csv.ts                     # parse & validasi CSV                                       belum
 ```
 
 > File bertanda **sementara** diganti saat data tersambung ke Supabase. Bentuk data yang dikembalikan
@@ -117,31 +125,40 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 
 | Tabel | Kolom utama | Catatan |
 |---|---|---|
-| `menus` | `id uuid pk`, `name text unique`, `price int null`, `is_active bool`, `sort_order int`, `created_at` | Master menu, dipakai kedua dataset |
-| `ingredients` | `id uuid pk`, `name text unique`, `unit text` (`potong`/`gram`/`porsi`/`ml`/`pcs`), `is_chicken bool`, `created_at` | `is_chicken` untuk konversi ke ekor |
+| `menus` | `id uuid pk`, `name text` (unik tanpa beda huruf besar/kecil), `price int null`, `is_active bool`, `sort_order int`, `created_at`, `updated_at` | Master menu; urutan = urutan di Rekap |
+| `ingredients` | `id uuid pk`, `name text` (unik), `unit text` (`potong`/`gram`/`kg`/`porsi`/`ml`/`pcs`/`gelas`), `is_chicken bool`, `is_active bool`, `created_at`, `updated_at` | `is_chicken` (hanya satuan potong) untuk konversi ke ekor; seed: Ayam |
 | `menu_ingredients` | `menu_id fk`, `ingredient_id fk`, `qty_per_portion numeric`, pk(`menu_id`,`ingredient_id`) | Resep |
 | `daily_sales` | `id`, `dataset`, `sale_date date`, `menu_id fk`, `qty int ≥ 0`, `created_at`, `updated_at`, unique(`dataset`,`sale_date`,`menu_id`) | Upsert per tanggal + menu |
 | `daily_context` | `dataset`, `ctx_date date`, `tag text` (`ramai`/`sepi`/`libur`/`gajian`/`tutup`), `note text`, pk(`dataset`,`ctx_date`) | Penanda hari, boleh tanggal mendatang |
 | `food_waste` | `id`, `dataset`, `waste_date date`, `menu_id fk null`, `ingredient_id fk null`, `qty numeric > 0`, `reason text` (`tidak_laku`/`rusak`/`kedaluwarsa`/`lainnya`), `note`, `created_at` | Check: tepat satu dari `menu_id`/`ingredient_id` terisi |
 | `forecast_runs` | `id uuid pk`, `dataset`, `created_at`, `status text` (`ok`/`failed`), `summary jsonb` | `summary`: per menu → model, error, jumlah hari data, peringatan |
 | `forecasts` | `id`, `run_id fk`, `dataset`, `target_date date`, `menu_id fk`, `predicted numeric`, `lower numeric null`, `upper numeric null` | Dashboard membaca run `ok` terbaru |
-| `settings` | `key text pk`, `value jsonb` | `buffer_pct`, `pieces_per_chicken`, dll. |
+| `settings` | `key text pk`, `value jsonb`, `updated_at` | `buffer_pct` (0–100, default 10), `pieces_per_chicken` (1–20, default 8) |
 | `pin_attempts` | `key text pk` (hash IP), `count int`, `window_start timestamptz` | Rate limit PIN |
 
 **Aturan data**
 - Hari tanpa baris `daily_sales` = tidak ada data (bukan 0). Hari bertanda `tutup` dikeluarkan dari training.
 - Tanggal selalu `date` (tanpa jam), dihitung dalam Asia/Jakarta.
-- Menu tidak dihapus permanen jika sudah punya data; cukup `is_active = false`.
+- Menu/bahan yang sudah punya riwayat (rekap, waste, resep) tidak bisa dihapus (FK `restrict`); cukup `is_active = false`.
+- Satuan bahan dikunci (UI + server) jika bahan sudah dipakai di resep atau waste.
+- Rekap menyimpan **semua menu aktif termasuk 0** (0 = terjual nol). Warung tutup = hapus rekap tanggal itu
+  + `daily_context.tag = 'tutup'`. Rekap hanya untuk hari ini s.d. 30 hari lalu dan hanya dataset `live` (D-22).
+- File SQL: `supabase/migrations/0001_init.sql` (idempoten). Database live: project Supabase region Singapura.
 
 ---
 
 ## 5. Alur Data
 
-**Input rekap (F2)**
-1. Server Action menerima tanggal + daftar `{menu_id, qty}`, cek PIN, validasi zod.
-2. Upsert ke `daily_sales` (dataset aktif). Data dianggap tersimpan di titik ini.
-3. Panggil `runForecast(dataset)` (§6). Jika gagal: catat `forecast_runs.status = 'failed'`,
-   tampilkan pesan "Data tersimpan, forecast gagal — tekan Hitung ulang". Data tetap aman.
+**Input rekap (F2) — sudah berjalan** (`src/actions/rekap.ts`)
+1. Server Action menerima tanggal + daftar `{menuId, qty}`, cek PIN (`isPinVerified`), validasi manual.
+2. Upsert ke `daily_sales` dataset `live` untuk semua menu aktif; hapus tag `tutup` jika ada. Data tersimpan di titik ini.
+3. **Belum:** panggil `runForecast('live')` (§6). Rencana: jika gagal → `forecast_runs.status = 'failed'` dan pesan
+   "Data tersimpan, forecast gagal — tekan Hitung ulang". Data tetap aman.
+
+**Kelola master data — sudah berjalan** (`src/actions/menus.ts`, `ingredients.ts`, `recipes.ts`, `settings.ts`)
+- Setiap action: cek PIN → validasi → tulis → `revalidatePath` → `{ ok, message }` atau `{ ok: false, error, needPin? }`.
+- Error PostgreSQL diterjemahkan: `23505` (nama dobel) dan `23503` (masih dipakai) → pesan Bahasa Indonesia.
+- Simpan resep: upsert baris baru/berubah dulu, baru hapus baris yang dibuang (tidak hilang jika gagal di tengah).
 
 **Import CSV (F3):** parse → validasi per baris → pratinjau → konfirmasi → upsert batch → forecast ulang.
 
@@ -237,16 +254,25 @@ ekor_ayam(d)           = ceil( rekomendasi(ayam, d) / pieces_per_chicken )
 
 ## 8. Keamanan & PIN
 
-- **Database:** RLS aktif tanpa policy publik. Client Supabase hanya dibuat di modul `server-only`.
-- **PIN:** `APP_PIN` dibandingkan dengan timing-safe compare di server.
-  Jika benar → cookie `as_pin` = `exp` + HMAC-SHA256(`SESSION_SECRET`, `exp`); `httpOnly`, `secure`,
-  `sameSite=lax`, berlaku 30 hari.
-- **Proteksi berlapis:** `middleware.ts` mengalihkan halaman tulis ke `/pin`, dan **setiap Server
-  Action tulis tetap memverifikasi cookie**.
-- **Rate limit:** maksimal 5 percobaan salah per 15 menit per IP (hash) di `pin_attempts`.
-- **Ganti PIN / logout semua perangkat:** ubah `APP_PIN` dan `SESSION_SECRET` di Vercel, lalu redeploy.
-- **Python:** menolak request tanpa `X-Forecast-Secret` yang cocok. Tidak memegang kredensial DB.
-- **Dashboard tanpa PIN:** menunggu keputusan klien (Q-05). Implementasi harus bisa dialihkan dengan satu setelan.
+Sudah diimplementasikan (D-21). Lokasi: `src/lib/pin-token.ts`, `src/lib/pin.ts`, `src/actions/pin.ts`, `src/proxy.ts`.
+
+- **Database:** RLS aktif tanpa policy publik. Client Supabase hanya di modul `server-only` (secret key).
+- **Cookie `as_pin`:** nilai `"<exp>.<hmac>"`, hmac = HMAC-SHA256(`SESSION_SECRET`, `pin:<exp>:<APP_PIN>`);
+  `httpOnly`, `secure` (production), `sameSite=lax`, berlaku 30 hari.
+  Karena `APP_PIN` ikut ditandatangani, **mengganti PIN otomatis membuat semua perangkat masuk ulang**.
+- **Proteksi berlapis:** `src/proxy.ts` (Next 16 menamai ulang `middleware` menjadi `proxy`, runtime Node) mengalihkan
+  `/rekap`, `/waste`, `/pengaturan`, `/import` ke `/pin?next=…`. **Setiap Server Action tulis tetap memanggil
+  `isPinVerified()`** — dokumentasi Next menegaskan proxy bukan satu-satunya pengaman.
+- `pin-token.ts` **tidak boleh** mengimpor `server-only` (paket itu menolak dipakai di proxy).
+- **Rate limit:** 5 percobaan salah per 15 menit per IP. Kunci = SHA-256(IP + `SESSION_SECRET`); IP asli tidak disimpan.
+- **Fail-closed:** jika `pin_attempts` tidak bisa dibaca/ditulis (DB mati), PIN ditolak dengan pesan jelas.
+- **`next`** setelah PIN hanya boleh ke halaman terproteksi di aplikasi ini (cegah open redirect).
+- **Sesi habis saat mengisi form:** proxy memotong request Server Action → client (`useActionRunner`) menampilkan
+  pesan + tombol "Masukkan PIN lagi"; data tidak tersimpan.
+- **Ganti PIN:** ubah `APP_PIN` di Vercel lalu redeploy. Logout paksa tanpa ganti PIN: ganti `SESSION_SECRET`.
+- **Python (rencana):** menolak request tanpa `X-Forecast-Secret` yang cocok; tidak memegang kredensial DB.
+- **Dashboard tanpa PIN:** Beranda & Prediksi terbuka; keputusan akhir menunggu klien (Q-05).
+- **`/status`:** hanya jumlah baris per tabel, `robots: noindex`, tidak di navigasi.
 
 ---
 
@@ -257,9 +283,9 @@ ekor_ayam(d)           = ceil( rekomendasi(ayam, d) / pieces_per_chicken )
 | `SUPABASE_URL` | Next.js server | URL project |
 | `SUPABASE_SECRET_KEY` | Next.js server | Key server-side ("secret" / "service_role") |
 | `APP_PIN` | Next.js server | PIN bersama, disarankan 6 digit |
-| `SESSION_SECRET` | Next.js server | Penanda tangan cookie PIN |
-| `FORECAST_URL` | Next.js server | URL fungsi Python |
-| `FORECAST_SECRET` | Next.js server + Python | Secret bersama |
+| `SESSION_SECRET` | Next.js server | Penanda tangan cookie PIN + garam hash IP; ganti = semua perangkat logout |
+| `FORECAST_URL` | Next.js server | URL fungsi Python — belum dipakai (T-10/T-18) |
+| `FORECAST_SECRET` | Next.js server + Python | Secret bersama — belum dipakai (T-10/T-18) |
 
 Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fillian) dan Vercel.
 
@@ -311,7 +337,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-03 | 23 Okt 2026 | Forecast di Python (numpy, scikit-learn) sebagai Vercel Function stateless | Ekosistem ML standar dan kredibel; batas bundle Python 500 MB cukup. Jika spike T-10 gagal → forecast pindah ke TypeScript tanpa mengubah kontrak §6.1 | Menunggu spike |
 | D-04 | 23 Okt 2026 | Forecast dihitung saat data berubah, hasil disimpan; dashboard hanya membaca | Menghindari cold start Python saat dashboard dibuka dan saat presentasi | Berlaku |
 | D-05 | 23 Okt 2026 | Semua akses DB lewat server; RLS aktif tanpa policy publik | Aplikasi publik tanpa login; key di browser selalu bisa dilihat orang | Berlaku |
-| D-06 | 23 Okt 2026 | Tanpa login; PIN bersama untuk aksi tulis | Mencegah orang yang tahu link mengubah data, tanpa sistem akun | Menunggu klien (Q-05) |
+| D-06 | 23 Okt 2026 | Tanpa login; PIN bersama untuk aksi tulis | Mencegah orang yang tahu link mengubah data, tanpa sistem akun | Berlaku — diimplementasikan (D-21); persetujuan klien Q-05 masih ditunggu |
 | D-07 | 23 Okt 2026 | Input = rekap harian per menu + import CSV, bukan sistem kasir | Kasir klien dibuat terpisah; rekap cukup untuk forecast harian | Berlaku |
 | D-08 | 23 Okt 2026 | Data simulasi dipisah lewat kolom `dataset`, dikalibrasi dari estimasi pemilik, wajib berlabel | Riwayat data nyata belum ada; kejujuran saat presentasi | Berlaku |
 | D-09 | 23 Okt 2026 | Semua akun atas nama AYAMSMART, dikelola Fillian sampai serah terima; commit pakai identitas AYAMSMART | Vercel Hobby tidak mendukung kolaborator pada repo private; serah terima cukup ganti kredensial | Berlaku |
@@ -323,8 +349,13 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-15 | 23 Okt 2026 | Repo GitHub **public**. Konsekuensi: secret dan data nyata klien tidak pernah di-commit; hanya data simulasi di repo | Klien menyerahkan keputusan ke Fillian; AI bisa membaca repo langsung via raw GitHub (workflow sama dengan SmartWMS) | Berlaku |
 | D-16 | 23 Okt 2026 | Cache Components dan Partial Prefetching Next.js 16 dimatikan (hapus `cacheComponents` & `partialPrefetching` dari `next.config.ts`) | Hampir semua halaman dinamis (cookie mode demo/PIN, data harus selalu terbaru); model caching baru menambah aturan Suspense/`"use cache"` tanpa manfaat berarti untuk tenggat 2 minggu | Berlaku |
 | D-17 | 23 Okt 2026 | Tema visual: latar hangat Nasi → Langit, kaca ala iOS (`glass`, `glass-bar`), gradasi biru brand, aksen kriuk (keemasan) & sambal (merah), font Plus Jakarta Sans; detail di `STYLEGUIDE.md` | Permintaan klien/Fillian: minimalis, nyaman di mata, warm tapi cocok dengan gradasi biru, glassmorphism iOS. Warna aksen diambil dari dunia ayam geprek agar tidak terasa template | Berlaku |
-| D-18 | 23 Okt 2026 | UI dibangun lebih dulu sebagai **pratinjau** dengan data simulasi (`lib/demo-data.ts`) dan forecast sementara TypeScript (`lib/preview-forecast.ts`: rata-rata hari yang sama 4 minggu, error = WAPE backtest 14 hari). Rute berbahasa Indonesia (`/prediksi`, `/bahan`, `/rekap`, `/waste`, `/pengaturan`, `/import`, `/lainnya`). Aksi simpan menampilkan pesan pratinjau yang jujur | Klien bisa melihat dan memberi masukan lebih awal (Agile). Forecast sementara tidak menggantikan D-03; kontrak §6.1 tetap. Setelah Supabase & Python siap, sumber data diganti tanpa mengubah halaman | Berlaku (sementara) |
+| D-18 | 23 Okt 2026 | UI dibangun lebih dulu sebagai **pratinjau** dengan data simulasi (`lib/demo-data.ts`) dan forecast sementara TypeScript (`lib/preview-forecast.ts`: rata-rata hari yang sama 4 minggu, error = WAPE backtest 14 hari). Rute berbahasa Indonesia (`/prediksi`, `/bahan`, `/rekap`, `/waste`, `/pengaturan`, `/import`, `/lainnya`). Aksi simpan menampilkan pesan pratinjau yang jujur | Klien bisa melihat dan memberi masukan lebih awal (Agile). Forecast sementara tidak menggantikan D-03; kontrak §6.1 tetap. Setelah Supabase & Python siap, sumber data diganti tanpa mengubah halaman | Berlaku (sementara) — Rekap & Pengaturan sudah data nyata; Beranda, Prediksi, Bahan, Waste masih simulasi |
 | D-19 | 23 Okt 2026 | Rendering & lokasi: halaman pratinjau **statis ISR** (`revalidate = 60` di layout) + `loading.tsx` + `FreshnessGuard` (muat ulang sekali jika tanggal halaman ≠ tanggal WIB di perangkat); region fungsi Vercel `sin1` | Sebelumnya `force-dynamic` + region default `iad1` (Washington): tiap tap tab ±0,9 dtk (uji jeda 300 ms). Sesudah: ±0,1–0,2 dtk karena halaman di-prefetch penuh dari CDN. Saat halaman membaca cookie/Supabase dan jadi dinamis: pertahankan `loading.tsx`, region `sin1`, dan kueri seringan mungkin | Berlaku |
+| D-20 | 23 Okt 2026 | Prioritas "Rekap harian live" (DB, PIN, rekap, kelola menu/bahan/resep/setelan) **sebelum** spike Python | Data nyata adalah bottleneck; tiap hari tanpa rekap = data hilang. Forecast pratinjau cukup untuk demo sementara | Berlaku |
+| D-21 | 23 Okt 2026 | PIN memakai `src/proxy.ts` (Next 16) + `isPinVerified()` di setiap Server Action; cookie HMAC ikut menandatangani `APP_PIN`; rate limit dengan IP di-hash; fail-closed | Proxy hanya pengecekan cepat (sesuai dok Next 16); ganti PIN harus mencabut semua sesi; tidak menyimpan data pribadi | Berlaku |
+| D-22 | 23 Okt 2026 | Aturan data rekap & master: simpan semua menu aktif termasuk 0; tutup = hapus rekap + tag `tutup`; rentang 30 hari; hanya `live`; menu/bahan berhistori dinonaktifkan, bukan dihapus; satuan bahan dikunci bila dipakai | Membedakan "terjual 0" vs "belum direkap"; menjaga riwayat penjualan & arti takaran resep | Berlaku |
+| D-23 | 23 Okt 2026 | Validasi input manual di server (`clean*Input`), tanpa zod | Skema input kecil & sederhana; menghindari dependency tambahan. Menggantikan rencana zod di §2 awal | Berlaku |
+| D-24 | 23 Okt 2026 | Pola UI kelola data: `useActionRunner` untuk semua aksi; error saat dialog terbuka tampil DI DALAM dialog (`DialogError`); form dengan status "belum disimpan" wajib `useLeaveGuard`; `ConfirmDialog.onClose` hanya terpicu oleh pengguna | Ditemukan saat testing: toast tertutup lapisan modal, dan perpindahan antar-dialog membatalkan dialog baru | Berlaku |
 
 ---
 

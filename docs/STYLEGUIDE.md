@@ -149,11 +149,16 @@ Font: **Plus Jakarta Sans Variable** dari paket npm `@fontsource-variable/plus-j
 | `/` | Beranda |
 | `/prediksi` | Prediksi 5 hari per menu |
 | `/bahan` | Rekomendasi bahan (besok / 5 hari) |
-| `/rekap` | Input rekap harian |
-| `/waste` | Food waste |
+| `/rekap` | Input rekap harian — **PIN**, data nyata; `?tanggal=YYYY-MM-DD` (hari ini s.d. 30 hari lalu) |
+| `/waste` | Food waste — PIN, masih simulasi |
 | `/lainnya` | Menu tambahan (HP) |
-| `/pengaturan` | Menu & resep, setelan perhitungan |
-| `/import` | Import CSV |
+| `/pengaturan` | Menu, bahan baku, resep, setelan — **PIN**, data nyata |
+| `/import` | Import CSV — PIN, baru template |
+| `/pin` | Masukkan PIN; `?next=` hanya ke halaman terproteksi. Tanpa tab bar aktif |
+| `/status` | Cek koneksi database (jumlah baris per tabel). Tidak ada di navigasi, `noindex` |
+
+Halaman bertanda PIN hanya bisa dibuka setelah PIN benar (ARCHITECTURE §8). Halaman dengan data nyata
+tidak menampilkan `SimulasiBadge`.
 
 ---
 
@@ -172,11 +177,15 @@ Semua di `src/components/`, ditulis dengan kelas Tailwind biasa dan menerima `cl
 | `Segmented` | `ui/segmented.tsx` | Pilihan 2–3 opsi |
 | `PageHeader` | `ui/page-header.tsx` | Large title + subjudul |
 | `Toast` | `ui/toast.tsx` | Di atas tab bar, hilang 3,5 detik |
-| `ConfirmDialog` | `ui/confirm-dialog.tsx` | `<dialog>` bawaan (fokus terkunci, Esc/klik luar = batal), kaca `glass-bar`, tombol disusun vertikal: utama → berisiko (`dangerSoft`) → `plain` |
-| `useLeaveGuard` | `hooks/use-leave-guard.ts` | Tahan klik link saat ada perubahan belum disimpan → tampilkan `ConfirmDialog`; refresh/tutup tab memakai dialog bawaan browser |
+| `ConfirmDialog` | `ui/confirm-dialog.tsx` | `<dialog>` bawaan (fokus terkunci, Esc/klik luar = batal), kaca `glass-bar`, tombol disusun vertikal: utama → berisiko (`dangerSoft`) → `plain`. `onClose` hanya terpicu oleh pengguna, jadi aman berpindah dialog (edit → hapus) |
+| `DialogError` | `ui/confirm-dialog.tsx` | Kotak error merah lembut **di dalam** dialog. Toast tidak terlihat saat dialog terbuka (tertutup lapisan modal) |
+| `useActionRunner` | `hooks/use-action-runner.ts` | Jalankan Server Action: `pending`, `toast` (sukses), `dialogError` (gagal saat dialog terbuka), `needPin` (sesi PIN habis → tampilkan link "Masukkan PIN lagi") |
+| `useLeaveGuard` | `hooks/use-leave-guard.ts` | Tahan klik link saat ada perubahan belum disimpan → tampilkan `ConfirmDialog`; refresh/tutup tab memakai dialog bawaan browser. Setelah pengguna memilih, pindah dengan `router.push` (bukan `window.location`, yang memicu dialog bawaan lagi) |
+| `RecipeEditor` | `app/pengaturan/recipe-editor.tsx` | Baris 2 tingkat (pilihan bahan selebar penuh, lalu takaran + satuan di dalam input + tombol hapus) agar muat di 360px |
 | Ikon | `icons.tsx` | SVG garis 24px buatan sendiri, `currentColor` |
 | `BrandMark`, `BrandWordmark` | `layout/brand-mark.tsx` | Logo sementara (squircle biru + paha ayam) |
-| `AppShell`, `SidebarNav`, `TabBar` | `layout/` | Kerangka responsif |
+| `AppShell`, `SidebarNav`, `TabBar` | `layout/app-shell.tsx`, `layout/nav.tsx` | Kerangka responsif |
+| `FreshnessGuard` | `layout/freshness-guard.tsx` | Muat ulang sekali bila tanggal halaman ≠ tanggal WIB perangkat |
 | `SalesChart` | `charts/sales-chart.tsx` | Recharts, tanpa animasi |
 
 ### Grafik
@@ -195,6 +204,10 @@ Semua di `src/components/`, ditulis dengan kelas Tailwind biasa dan menerima `cl
 - Status tidak hanya dibedakan warna (contoh: "Naik 5%", bukan hanya hijau).
 - Status **belum disimpan** selalu merah tebal (`sambal-700`) dengan titik penanda, dan form yang punya status ini wajib memakai `useLeaveGuard`.
 - Segmented & chip pilihan memakai `role="radio"` / `aria-pressed`.
+- Error yang muncul saat dialog terbuka **wajib** lewat `DialogError` di dalam dialog itu; toast hanya untuk
+  pesan sukses atau error saat tidak ada dialog. Jika error bisa diatasi dengan aksi lain (mis. menu
+  berhistori tidak bisa dihapus), tawarkan tombolnya langsung ("Nonaktifkan saja").
+- Aksi yang tidak bisa dibatalkan (hapus) selalu lewat `ConfirmDialog` dengan tombol `danger`.
 
 ---
 
@@ -225,5 +238,8 @@ akhir, target sentuh ≥ 44px, grafik terbaca.
 - Tombol memakai kata kerja yang menyebut hasilnya: "Simpan rekap", "Catat waste", "Lihat semua bahan".
 - Pesan error/kosong memberi langkah berikutnya, tidak meminta maaf.
 - Hindari klaim berlebihan ("akurat", "pasti", "AI canggih"); pakai "perkiraan" dan tampilkan selisih.
-- Selama database belum tersambung, aksi simpan menampilkan pesan pratinjau yang jujur
-  ("…belum disimpan karena database belum tersambung").
+- Halaman yang masih simulasi (Waste, Import) menampilkan pesan pratinjau yang jujur saat menyimpan
+  ("…belum disimpan karena database belum tersambung"). Halaman data nyata memakai pesan hasil sebenarnya
+  ("Rekap tersimpan: 42 porsi.").
+- Pesan error dari database diterjemahkan ke bahasa pemilik: nama dobel → "Nama ini sudah dipakai",
+  masih dipakai → sarankan menonaktifkan.

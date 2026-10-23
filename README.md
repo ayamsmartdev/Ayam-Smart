@@ -14,7 +14,7 @@ Repo: `ayamsmartdev/Ayam-Smart` (public: jangan commit secret atau data nyata kl
 ## Stack
 
 Next.js (App Router) · TypeScript · Tailwind CSS v4 · Recharts · Supabase (PostgreSQL) ·
-Python (numpy, scikit-learn, FastAPI) sebagai Vercel Function · Vercel
+Python + numpy (Ridge regression) sebagai Vercel Function · Vercel
 
 > Versi persis dicatat di `package.json` dan `requirements.txt` setelah setup.
 
@@ -44,10 +44,11 @@ Jalankan file migrasi di `supabase/migrations/` secara berurutan lewat SQL Edito
 # macOS/Linux: python3.12 -m venv .venv
 # Aktifkan: Windows Git Bash → source .venv/Scripts/activate | macOS/Linux → source .venv/bin/activate
 pip install -r requirements-dev.txt
-uvicorn api.forecast:app --port 8000
+pytest                          # tes model (Ridge dibandingkan dengan scikit-learn)
+python api/forecast.py          # fungsi lokal di http://localhost:8000/api/forecast (butuh env FORECAST_SECRET)
 ```
 
-Set `FORECAST_URL=http://localhost:8000/api/forecast` di `.env.local`.
+Set `FORECAST_URL=http://localhost:8000/api/forecast` dan `FORECAST_SECRET` di `.env.local`.
 
 ### 4. Aplikasi
 

@@ -20,7 +20,7 @@
         ▼
  Python Function di Vercel (api/forecast.py)
   • stateless: terima riwayat penjualan → kembalikan prediksi
-  • numpy + scikit-learn
+  • numpy saja (Ridge ditulis sendiri, D-25) + package forecasting/
 ```
 
 Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan hasil ke `forecasts`
@@ -39,7 +39,7 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 | Data access | `@supabase/supabase-js` 2.x, hanya di modul `server-only` | D-05 |
 | Validasi | Manual di server (`clean*Input` di `src/lib/data/*`) | Tanpa zod, agar dependency tetap ringan (D-23) |
 | Database | Supabase (PostgreSQL), region Singapore | Free plan (D-02, D-13) |
-| Forecast | Python 3.12: numpy, scikit-learn, FastAPI | Vercel Python Function (D-03); versi dikunci di `.python-version` |
+| Forecast | Python 3.12 + numpy (tanpa scikit-learn & FastAPI di runtime) | Vercel Python Function di folder `/api` (D-03, D-25); versi dikunci di `.python-version` & `requirements.txt` |
 | Hosting | Vercel, region fungsi **Singapura (`sin1`)** via `vercel.json` | Hobby plan, keputusan klien (D-13); region dekat pengguna & Supabase (D-19) |
 | Repo & IDE | GitHub (public, akun AYAMSMART) + VS Code lokal | D-09, D-15 |
 
@@ -51,18 +51,19 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 /
 ├─ AGENTS.md  CLAUDE.md  README.md  .env.example
 ├─ .python-version                  # "3.12" — sama dengan default Vercel
-├─ requirements.txt                 # dependency Python runtime (versi di-pin): numpy, scikit-learn, fastapi
-├─ requirements-dev.txt             # khusus lokal: -r requirements.txt + uvicorn, pytest
+├─ requirements.txt                 # dependency Python RUNTIME (dipasang Vercel, versi di-pin): numpy saja
+├─ requirements-dev.txt             # khusus laptop: -r requirements.txt + pytest + scikit-learn (pembanding tes)
+├─ pytest.ini                       # root repo masuk sys.path untuk tes
 ├─ api/
-│  └─ forecast.py                   # Python Function → POST /api/forecast (tipis, panggil package forecasting)
+│  └─ forecast.py                   # Python Function → /api/forecast (kelas `handler`, cek secret, panggil forecasting) ✅ spike
 ├─ forecasting/                     # package Python murni, bisa dites tanpa server
 │  ├─ __init__.py
 │  ├─ features.py                   # pembentukan fitur
-│  ├─ models.py                     # MA7, seasonal naive, ridge
+│  ├─ models.py                     # Ridge numpy ✅ (MA7, seasonal naive menyusul T-17)
 │  ├─ backtest.py                   # rolling-origin backtest + WAPE + interval
 │  └─ run.py                        # orkestrasi per menu
 ├─ tests/
-│  └─ test_forecasting.py           # pytest (dev only)
+│  └─ test_models.py                # pytest: Ridge identik dengan scikit-learn ✅ (dev only)
 ├─ scripts/
 │  └─ generate_demo_data.py         # generator data simulasi (seed tetap)
 ├─ supabase/
@@ -212,7 +213,7 @@ tanggal besok (WIB) dari hasil ini.
 |---|---|---|
 | `ma7` | Rata-rata bergerak | Rata-rata 7 hari data terakhir |
 | `snaive` | Seasonal naive | Nilai hari yang sama minggu lalu; jika tidak ada → `ma7` |
-| `ridge` | Ridge regression (scikit-learn) | Fitur: one-hot hari dalam seminggu, nilai lag-7, rata-rata 7 hari terakhir saat titik prediksi, one-hot penanda hari, indeks tren. Fitur distandarkan, `alpha` tetap |
+| `ridge` | Ridge regression (numpy, setara scikit-learn `StandardScaler` + `Ridge`; D-25) | Fitur: one-hot hari dalam seminggu, nilai lag-7, rata-rata 7 hari terakhir saat titik prediksi, one-hot penanda hari, indeks tren. Fitur distandarkan, `alpha` tetap |
 
 Horizon ≤ 7 hari memungkinkan lag-7 dipakai langsung tanpa prediksi rekursif.
 
@@ -284,8 +285,8 @@ Sudah diimplementasikan (D-21). Lokasi: `src/lib/pin-token.ts`, `src/lib/pin.ts`
 | `SUPABASE_SECRET_KEY` | Next.js server | Key server-side ("secret" / "service_role") |
 | `APP_PIN` | Next.js server | PIN bersama, disarankan 6 digit |
 | `SESSION_SECRET` | Next.js server | Penanda tangan cookie PIN + garam hash IP; ganti = semua perangkat logout |
-| `FORECAST_URL` | Next.js server | URL fungsi Python — belum dipakai (T-10/T-18) |
-| `FORECAST_SECRET` | Next.js server + Python | Secret bersama — belum dipakai (T-10/T-18) |
+| `FORECAST_URL` | Next.js server | URL fungsi Python — belum dipakai Next.js (T-18) |
+| `FORECAST_SECRET` | Next.js server + Python | Secret bersama; sudah dicek `api/forecast.py` (kosong → 503). Next.js memakainya mulai T-18 |
 
 Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fillian) dan Vercel.
 
@@ -334,7 +335,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 |---|---|---|---|---|
 | D-01 | 22 Okt 2026 | Next.js + TypeScript + Tailwind v4 murni, tanpa component library | Kustomisasi penuh per komponen; stack dikuasai developer | Berlaku |
 | D-02 | 22 Okt 2026 | Supabase PostgreSQL sebagai database | Banyak perangkat harus melihat data yang sama; kasir belum ada sehingga aplikasi mengumpulkan data sendiri | Berlaku |
-| D-03 | 23 Okt 2026 | Forecast di Python (numpy, scikit-learn) sebagai Vercel Function stateless | Ekosistem ML standar dan kredibel; batas bundle Python 500 MB cukup. Jika spike T-10 gagal → forecast pindah ke TypeScript tanpa mengubah kontrak §6.1 | Menunggu spike |
+| D-03 | 23 Okt 2026 | Forecast di Python (numpy, scikit-learn) sebagai Vercel Function stateless | Ekosistem ML standar dan kredibel; batas bundle Python 500 MB cukup. Jika spike T-10 gagal → forecast pindah ke TypeScript tanpa mengubah kontrak §6.1 | Berlaku — spike T-10 lolos (lihat D-25 untuk dependency) |
 | D-04 | 23 Okt 2026 | Forecast dihitung saat data berubah, hasil disimpan; dashboard hanya membaca | Menghindari cold start Python saat dashboard dibuka dan saat presentasi | Berlaku |
 | D-05 | 23 Okt 2026 | Semua akses DB lewat server; RLS aktif tanpa policy publik | Aplikasi publik tanpa login; key di browser selalu bisa dilihat orang | Berlaku |
 | D-06 | 23 Okt 2026 | Tanpa login; PIN bersama untuk aksi tulis | Mencegah orang yang tahu link mengubah data, tanpa sistem akun | Berlaku — diimplementasikan (D-21); persetujuan klien Q-05 masih ditunggu |
@@ -356,6 +357,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-22 | 23 Okt 2026 | Aturan data rekap & master: simpan semua menu aktif termasuk 0; tutup = hapus rekap + tag `tutup`; rentang 30 hari; hanya `live`; menu/bahan berhistori dinonaktifkan, bukan dihapus; satuan bahan dikunci bila dipakai | Membedakan "terjual 0" vs "belum direkap"; menjaga riwayat penjualan & arti takaran resep | Berlaku |
 | D-23 | 23 Okt 2026 | Validasi input manual di server (`clean*Input`), tanpa zod | Skema input kecil & sederhana; menghindari dependency tambahan. Menggantikan rencana zod di §2 awal | Berlaku |
 | D-24 | 23 Okt 2026 | Pola UI kelola data: `useActionRunner` untuk semua aksi; error saat dialog terbuka tampil DI DALAM dialog (`DialogError`); form dengan status "belum disimpan" wajib `useLeaveGuard`; `ConfirmDialog.onClose` hanya terpicu oleh pengguna | Ditemukan saat testing: toast tertutup lapisan modal, dan perpindahan antar-dialog membatalkan dialog baru | Berlaku |
+| D-25 | 23 Okt 2026 | Runtime forecast **hanya numpy**: Ridge (standarisasi + penalti, intercept tidak dipenalti) ditulis di `forecasting/models.py` dan dibuktikan identik dengan scikit-learn lewat `tests/test_models.py` (toleransi 1e-8); scikit-learn hanya dependency dev. Tanpa FastAPI (kelas `handler` bawaan). Fungsi di folder `/api`, bukan Vercel Services | Hasil prediksi sama, tetapi paket 264 → 69 MB dan import lokal ±1 dtk → ±0,14 dtk. Spike di Vercel (`sin1`): import 217 ms, fit 40 ms (pertama) / 1,1 ms, request 0,15–0,19 dtk dari laptop Fillian. `/api` stabil; Services masih beta & perlu ubah struktur (jadi cadangan). Melengkapi D-03 | Berlaku |
 
 ---
 
@@ -363,7 +365,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 
 | Risiko | Dampak | Mitigasi |
 |---|---|---|
-| Python di Vercel bermasalah (rute, ukuran, cold start) | Forecast tidak jalan | Spike di hari pertama Sprint 1; fallback TypeScript (D-03) |
+| Python di Vercel bermasalah (rute, ukuran, cold start) | Forecast tidak jalan | **Teratasi:** spike T-10 lolos (D-25). Sisa risiko: rute `/api/*` diambil alih folder `/api` → jangan buat `src/app/api/` |
 | Data nyata sangat sedikit | Forecast tidak bermakna | Baseline + peringatan; mode demo terkalibrasi; error ditampilkan jujur |
 | Materi klien (menu, resep) terlambat | Rekomendasi tidak bisa dihitung | Menu & resep contoh sementara, bisa diubah di Pengaturan |
 | Supabase ter-pause | Aplikasi error saat presentasi | Input harian menjaga aktivitas; cek H-1 |

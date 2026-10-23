@@ -209,8 +209,11 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 - **Kejujuran klaim:** tampilkan error forecast apa adanya. Jangan menulis "akurat", "AI canggih",
   atau klaim sejenis di UI.
 - TypeScript `strict`, hindari `any`. Tidak ada dead code atau import yang tidak terpakai.
-- Python: versi dependency di-pin di `requirements.txt`. Dependency hanya `numpy`, `scikit-learn`,
-  `fastapi` kecuali disetujui Fillian.
+- **Python runtime hanya `numpy`** (D-25), versi di-pin di `requirements.txt`. Paket lain wajib disetujui Fillian.
+  Tes di `requirements-dev.txt` (`pytest`, `scikit-learn` sebagai pembanding). Jalankan: `py -3.12 -m pytest`.
+- **Jangan membuat `src/app/api/`.** Folder `/api` di root (Python) mengambil alih rute `/api/*` di Vercel.
+- **`api/forecast.py` tetap tipis:** cek `X-Forecast-Secret` (env kosong → 503), lalu panggil package `forecasting/`.
+  Logika model di `forecasting/` dan wajib dites. Rumus yang ditulis sendiri wajib punya tes pembanding.
 
 ---
 
@@ -237,18 +240,20 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   - PIN (D-21): `/pin`, cookie 30 hari, rate limit, proxy + cek di setiap action. `/status` untuk cek koneksi DB.
 - **Masih simulasi** (`src/lib/demo-data.ts` + forecast TypeScript `src/lib/preview-forecast.ts`, berlabel Simulasi):
   Beranda, Prediksi, Bahan, Waste (simpan waste belum ke DB), Import (baru unduh template).
-- **Belum ada:** Python forecast (T-10), simpan food waste, mode demo/live, import CSV, seed data simulasi di DB.
+- **Python forecast:** spike T-10 lolos (D-03 berlaku, D-25). `api/forecast.py` masih versi spike (laporan versi & waktu),
+  belum dipanggil Next.js. Ridge numpy di `forecasting/models.py` + 11 tes pembanding scikit-learn.
+- **Belum ada:** forecast sungguhan (T-16 → T-17 → T-18), simpan food waste, mode demo/live, import CSV, seed data simulasi di DB.
 - **Database:** skema di `supabase/migrations/0001_init.sql` (10 tabel, RLS tanpa policy). Isi tabel live = data asli
   klien → **jangan pernah dimasukkan ke repo** (repo publik).
 - **Deploy:** https://ayam-smart.vercel.app (auto-deploy dari `main`), region fungsi `sin1`. Cache Components dimatikan (D-16).
   Halaman pratinjau ISR 60 dtk + FreshnessGuard (D-19); halaman DB `force-dynamic`. Env di Vercel: `SUPABASE_URL`,
-  `SUPABASE_SECRET_KEY`, `APP_PIN`, `SESSION_SECRET`.
+  `SUPABASE_SECRET_KEY`, `APP_PIN`, `SESSION_SECRET`, `FORECAST_SECRET`.
 - **Lokal:** Python 3.12.10 terpasang (dipanggil `py -3.12`; `python` default = 3.15, jangan dipakai).
-- **Berikutnya:** pilih salah satu — spike Python di Vercel (T-10, menguji D-03) atau sambungkan Beranda/Bahan/Waste ke
-  data live. Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
+- **Berikutnya:** T-16 generator data simulasi → T-17 package forecast v1 (MA7, seasonal naive, Ridge, backtest WAPE)
+  → T-18 integrasi simpan rekap → forecast. Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
   (keduanya login via GitHub `ayamsmartdev`). 2FA belum diaktifkan (T-02).
-- **Keputusan yang belum final:** spike Python di Vercel (D-03) belum diuji; PIN (D-06) sudah jalan tapi menunggu persetujuan klien (Q-05).
+- **Keputusan yang belum final:** PIN (D-06) sudah jalan tapi menunggu persetujuan klien (Q-05).
 - **Masalah diketahui:** belum ada.
 - **Menunggu klien:** lihat `docs/PRD.md` §8 Pertanyaan Terbuka.
 

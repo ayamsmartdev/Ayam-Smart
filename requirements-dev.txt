@@ -1,0 +1,6 @@
+# Khusus laptop (tes), TIDAK dipakai Vercel.
+# Pasang: py -3.12 -m pip install -r requirements-dev.txt
+-r requirements.txt
+pytest==9.1.1
+# Pembanding: membuktikan Ridge numpy identik dengan scikit-learn (tests/test_models.py).
+scikit-learn==1.9.1

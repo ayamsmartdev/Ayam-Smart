@@ -1,4 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["sin1"]
+  "regions": ["sin1"],
+  "functions": {
+    "api/forecast.py": {
+      "excludeFiles": "{node_modules/**,.next/**,src/**,public/**,docs/**,supabase/**,scripts/**,tests/**}"
+    }
+  }
 }

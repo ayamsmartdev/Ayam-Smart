@@ -1,0 +1,4 @@
+# Dependency RUNTIME fungsi forecast (api/forecast.py), dipasang Vercel saat build.
+# Versi dikunci (AGENTS §9). Python 3.12 (.python-version).
+# Hanya numpy (D-25): ±70 MB terpasang; batas bundle Vercel Python 500 MB.
+numpy==2.5.4

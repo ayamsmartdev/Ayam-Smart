@@ -103,6 +103,7 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
       ├─ data/                      # baca & validasi per domain (server-only)                   ✅
       │  ├─ rekap.ts  menus.ts  ingredients.ts  recipes.ts  settings.ts
       ├─ recommend.ts               # rumus rekomendasi bahan (§7)
+      ├─ stock.ts                   # hitungan stok & selisih, validasi stok (murni, dipakai server + form)
       ├─ demo-data.ts               # DATA SIMULASI (Beranda/Prediksi/Bahan/Waste)               sementara
       ├─ preview-forecast.ts        # forecast pratinjau TypeScript (D-18)                       sementara
       ├─ preview.ts                 # penyusun angka pratinjau                                  sementara
@@ -134,7 +135,7 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 | `food_waste` | `id`, `dataset`, `waste_date date`, `menu_id fk null`, `ingredient_id fk null`, `qty numeric > 0`, `reason text` (`tidak_laku`/`rusak`/`kedaluwarsa`/`lainnya`), `note`, `created_at` | Check: tepat satu dari `menu_id`/`ingredient_id` terisi |
 | `forecast_runs` | `id uuid pk`, `dataset`, `created_at`, `status text` (`ok`/`failed`), `summary jsonb` | `summary`: per menu → model, error, jumlah hari data, peringatan |
 | `forecasts` | `id`, `run_id fk`, `dataset`, `target_date date`, `menu_id fk`, `predicted numeric`, `lower numeric null`, `upper numeric null` | Dashboard membaca run `ok` terbaru |
-| `daily_stock` | `dataset`, `stock_date date`, `ingredient_id fk`, `prepared_pieces int ≥ 0`, `leftover_pieces int ≥ 0`, `updated_at`, pk(`dataset`,`stock_date`,`ingredient_id`), check `leftover ≤ prepared` | Stok per bahan yang dibeli per kg, dalam potong (D-26, D-28): disiapkan = segar + diambil dari freezer; sisa = masuk freezer saat tutup. Baris tidak ada = tidak dicatat |
+| `daily_stock` | `dataset`, `stock_date date`, `ingredient_id fk`, `bought_kg numeric(6,2) null` (0–500), `bought_pieces int null` (0–5000), `leftover_pieces int null` (0–5000), `updated_at`, pk(`dataset`,`stock_date`,`ingredient_id`), check minimal satu terisi | Stok per bahan yang dibeli per kg (D-26, D-28, D-29): belanja (kg + jumlah potong opsional) boleh diisi kapan saja; sisa = potong yang masuk freezer saat tutup. Baris tidak ada = tidak dicatat |
 | `settings` | `key text pk`, `value jsonb`, `updated_at` | `buffer_pct` (0–100, default 10). `pieces_per_chicken` dihapus di 0002; `pieces_per_kg` global dari 0002 dipindah ke `ingredients` di 0003 (D-28) |
 | `pin_attempts` | `key text pk` (hash IP), `count int`, `window_start timestamptz` | Rate limit PIN |
 
@@ -143,11 +144,16 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 - Tanggal selalu `date` (tanpa jam), dihitung dalam Asia/Jakarta.
 - Menu/bahan yang sudah punya riwayat (rekap, waste, resep) tidak bisa dihapus (FK `restrict`); cukup `is_active = false`.
 - Satuan bahan dikunci (UI + server) jika bahan sudah dipakai di resep atau waste.
-- Rekap menyimpan **semua menu aktif termasuk 0** (0 = terjual nol). Warung tutup = hapus rekap **dan stok** tanggal itu
-  + `daily_context.tag = 'tutup'`. Rekap hanya untuk hari ini s.d. 30 hari lalu dan hanya dataset `live` (D-22).
-- Stok boleh tidak diisi (dua kolom kosong = baris dihapus); jika diisi, dua-duanya wajib dan sisa ≤ disiapkan.
-  Hanya untuk bahan aktif yang dibeli per kg. Potong terpakai = `prepared_pieces − leftover_pieces` (≈ terjual + rusak).
-- File SQL: `supabase/migrations/0001_init.sql`, `0002_kategori_stok.sql`, `0003_konversi_per_bahan.sql` (idempoten, dijalankan berurutan). Database live: project Supabase region Singapura.
+- Rekap menyimpan **semua menu aktif termasuk 0** (0 = terjual nol). Warung tutup = hapus rekap porsi tanggal itu
+  + `daily_context.tag = 'tutup'`; **stok tidak dihapus** (isi freezer tetap ada, D-29). Rekap hanya untuk hari ini s.d. 30 hari lalu dan hanya dataset `live` (D-22).
+- Stok boleh tidak diisi (semua kosong = baris dihapus). Belanja dan sisa disimpan terpisah (pagi belanja, malam sisa).
+  Hanya untuk bahan aktif yang dibeli per kg. Hitungan selisih di `src/lib/stock.ts` (murni, dites):
+  `dibeli = bought_pieces ?? round(bought_kg × perkiraan)`, `tersedia = sisa terakhir + dibeli`,
+  `sisa seharusnya = tersedia − Σ porsi × resep`, `selisih = sisa seharusnya − leftover_pieces`.
+  Sisa terakhir = sisa hari sebelumnya, melewati hari bertanda `tutup` (maks. 7 hari); jika hari buka sebelumnya tidak
+  punya sisa → tidak diketahui, selisih tidak dihitung. Perkiraan potong/kg = rata-rata 14 hari (belanja yang potongnya
+  terisi), cadangan `ingredients.pieces_per_kg`.
+- File SQL: `supabase/migrations/0001_init.sql`, `0002_kategori_stok.sql`, `0003_konversi_per_bahan.sql`, `0004_belanja_sisa.sql` (idempoten, dijalankan berurutan). Database live: project Supabase region Singapura.
 
 ---
 
@@ -155,9 +161,10 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 
 **Input rekap (F2) — sudah berjalan** (`src/actions/rekap.ts`)
 1. Server Action menerima tanggal + daftar `{menuId, qty}`, cek PIN (`isPinVerified`), validasi manual.
-2. Validasi stok (`cleanStockInput`) sebelum menulis apa pun.
+2. Validasi stok (`cleanStockInput`, `src/lib/stock.ts`) sebelum menulis apa pun.
 3. Upsert ke `daily_sales` dataset `live` untuk semua kategori aktif; upsert/hapus `daily_stock` per bahan; hapus tag
-   `tutup` jika ada. Data tersimpan di titik ini.
+   `tutup` jika ada. Data tersimpan di titik ini. Stok juga bisa disimpan sendiri lewat `saveStock` (kartu "Simpan stok",
+   untuk belanja pagi/siang).
 4. **Belum:** panggil `runForecast('live')` (§6). Rencana: jika gagal → `forecast_runs.status = 'failed'` dan pesan
    "Data tersimpan, forecast gagal — tekan Hitung ulang". Data tetap aman.
 
@@ -256,7 +263,8 @@ beli_kg(i)             = ceil_0,5( max(0, rekomendasi(i) − sisa_freezer(i)) / 
 
 `buffer_pct` default 10 (sementara, menunggu Q-09). Prediksi tidak dibulatkan sebelum dikalikan resep.
 `sisa_freezer(i)` = `leftover_pieces` bahan i pada hari terakhir yang tercatat (0 jika tidak ada); untuk total 5 hari
-dikurangkan sekali. `ceil_0,5` = dibulatkan ke atas ke kelipatan 0,5 kg (D-27).
+dikurangkan sekali. `ceil_0,5` = dibulatkan ke atas ke kelipatan 0,5 kg (D-27). `pieces_per_kg(i)` untuk rekomendasi
+live (T-20) = **rata-rata potong/kg 14 hari terakhir** dari belanja, cadangan angka di pengaturan bahan (D-29).
 
 ---
 
@@ -365,9 +373,10 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-23 | 23 Okt 2026 | Validasi input manual di server (`clean*Input`), tanpa zod | Skema input kecil & sederhana; menghindari dependency tambahan. Menggantikan rencana zod di §2 awal | Berlaku |
 | D-24 | 23 Okt 2026 | Pola UI kelola data: `useActionRunner` untuk semua aksi; error saat dialog terbuka tampil DI DALAM dialog (`DialogError`); form dengan status "belum disimpan" wajib `useLeaveGuard`; `ConfirmDialog.onClose` hanya terpicu oleh pengguna | Ditemukan saat testing: toast tertutup lapisan modal, dan perpindahan antar-dialog membatalkan dialog baru | Berlaku |
 | D-25 | 23 Okt 2026 | Runtime forecast **hanya numpy**: Ridge (standarisasi + penalti, intercept tidak dipenalti) ditulis di `forecasting/models.py` dan dibuktikan identik dengan scikit-learn lewat `tests/test_models.py` (toleransi 1e-8); scikit-learn hanya dependency dev. Tanpa FastAPI (kelas `handler` bawaan). Fungsi di folder `/api`, bukan Vercel Services | Hasil prediksi sama, tetapi paket 264 → 69 MB dan import lokal ±1 dtk → ±0,14 dtk. Spike di Vercel (`sin1`): import 217 ms, fit 40 ms (pertama) / 1,1 ms, request 0,15–0,19 dtk dari laptop Fillian. `/api` stabil; Services masih beta & perlu ubah struktur (jadi cadangan). Melengkapi D-03 | Berlaku |
-| D-26 | 24 Okt 2026 | **Rekap per kategori menu** (±12 baris), bukan per menu (41), ditambah **stok ayam dada harian** (potong disiapkan & sisa masuk freezer, tabel `daily_stock`). Kategori disimpan di tabel `menus` (+ kolom `description` untuk isi varian) | Klien tidak punya catatan penjualan ("dilihat dari habisnya bahan"); 41 baris dari ingatan rawan asal isi. Per menu ±1 porsi/hari → prediksi tidak stabil; per kategori angkanya besar (geprek bakar ±28/hari). Indikator sukses klien = stok ayam. Tabel `menus` dipakai ulang agar resep, rekap, forecast tidak berubah. Detail varian bisa didapat nanti dari export platform online/kasir | Berlaku |
+| D-26 | 24 Okt 2026 | **Rekap per kategori menu** (±12 baris), bukan per menu (41), ditambah **stok ayam dada harian** (potong disiapkan & sisa masuk freezer, tabel `daily_stock`). Kategori disimpan di tabel `menus` (+ kolom `description` untuk isi varian) | Klien tidak punya catatan penjualan ("dilihat dari habisnya bahan"); 41 baris dari ingatan rawan asal isi. Per menu ±1 porsi/hari → prediksi tidak stabil; per kategori angkanya besar (geprek bakar ±28/hari). Indikator sukses klien = stok ayam. Tabel `menus` dipakai ulang agar resep, rekap, forecast tidak berubah. Detail varian bisa didapat nanti dari export platform online/kasir | Berlaku; bagian "potong disiapkan" digantikan D-29 |
 | D-27 | 24 Okt 2026 | Ayam dihitung **per kg dada**: setelan `pieces_per_kg` (default 9) menggantikan potong per ekor; rekomendasi beli = (rekomendasi potong − sisa freezer) ÷ potong per kg, dibulatkan ke atas per 0,5 kg | Klien hanya membeli dada per kg di pasar, 1 kg = 9–10 potong (Q-03). Angka 9 = batas bawah agar tidak kekurangan. Pembulatan 0,5 kg = asumsi satuan beli di pasar, bisa diubah | Diubah sebagian oleh D-28 (potong per kg pindah ke tiap bahan) |
 | D-28 | 24 Okt 2026 | **Potong per kg dan stok freezer per bahan**, bukan global: `ingredients.pieces_per_kg` (wajib jika dibeli per kg) dan `daily_stock.ingredient_id`. Setelan global `pieces_per_kg` dihapus (0003) | Diusulkan saat review: jika kelak ada menu paha/sayap, satu angka global membuat rekomendasi kg salah tanpa peringatan. Dibuat sebelum ada data stok dan sebelum form stok (K4), jadi hampir tanpa biaya. Warung yang hanya memakai dada tetap melihat satu baris | Berlaku |
+| D-29 | 24 Okt 2026 | Stok dicatat sesuai yang penjual tahu: **belanja** (kg + jumlah potong opsional, bisa disimpan kapan saja) dan **sisa masuk freezer** saat tutup; sistem menghitung tersedia → sisa seharusnya (dari rekap × resep) → **selisih** ("tidak tercatat: food waste, dipakai sendiri, atau salah hitung rekap"). Potong/kg pengaturan jadi perkiraan cadangan; rekomendasi memakai rata-rata 14 hari. Warung tutup tidak menghapus stok. Hanya ayam (bahan dibeli per kg); bahan lain di luar scope | Klien menghitung "dari habisnya bahan" dan tidak menghitung potong yang disiapkan. Ukuran ayam berubah tiap hari (1 kg bisa 8–10 potong), jadi angka tetap di pengaturan memicu selisih palsu; jumlah potong asli opsional agar belanja tetap tercatat walau tidak dihitung. Selisih mengukur indikator sukses klien ("stok ayam") tanpa input tambahan. Diputuskan bersama Fillian | Berlaku |
 
 ---
 

@@ -1,5 +1,11 @@
 import "server-only";
 import { addDays, todayWIB } from "@/lib/date";
+import {
+  averagePiecesPerKg,
+  findPreviousLeftover,
+  PIECES_PER_KG_WINDOW_DAYS,
+  type StockValues,
+} from "@/lib/stock";
 import { getSupabase } from "@/lib/supabase-server";
 
 /** Rekap hanya untuk data nyata (D-08). Data simulasi tidak pernah ditulis dari form. */
@@ -8,27 +14,35 @@ export const LIVE = "live" as const;
 /** Rentang tanggal yang boleh direkap: hari ini sampai 30 hari ke belakang (WIB). */
 export const REKAP_MAX_DAYS_BACK = 30;
 
+/** Berapa hari ke belakang dicari sisa freezer terakhir (melewati hari tutup). */
+const LEFTOVER_LOOKBACK_DAYS = 7;
+
 /** Kategori menu aktif (tabel `menus`, D-26). */
 export type ActiveMenu = { id: string; name: string; description: string | null };
 
-/** Bahan yang dibeli per kg (ayam) → punya baris stok di rekap (D-26, D-28). */
-export type StockIngredient = { id: string; name: string };
-
-/** Stok satu bahan pada satu hari, dalam potong. */
-export type StockEntry = { prepared: number; leftover: number };
-
-/** Batas wajar potong per bahan per hari (cegah salah ketik). */
-export const STOCK_MAX = 2000;
+/** Bahan yang dibeli per kg (ayam) → punya kartu stok di rekap (D-26, D-28, D-29). */
+export type StockIngredient = {
+  id: string;
+  name: string;
+  /** Perkiraan potong/kg dari pengaturan bahan (cadangan). */
+  piecesPerKg: number;
+  /** Rata-rata potong/kg dari belanja 14 hari terakhir; null jika belum ada. */
+  averagePiecesPerKg: number | null;
+  /** Takaran bahan ini per porsi tiap kategori (dari resep). */
+  qtyPerPortionByMenu: Record<string, number>;
+};
 
 export type RekapForDate = {
   qtyByMenu: Record<string, number>;
-  /** Stok tercatat pada tanggal itu; bahan tanpa baris = belum dicatat. */
-  stockByIngredient: Record<string, StockEntry>;
-  /** Sisa freezer hari sebelumnya, sebagai pengingat saat mengisi "disiapkan". */
-  prevLeftoverByIngredient: Record<string, number>;
+  /** Stok tercatat pada tanggal itu (belanja dan/atau sisa); bahan tanpa baris = belum dicatat. */
+  stockByIngredient: Record<string, StockValues>;
+  /** Sisa freezer terakhir sebelum tanggal ini (hari tutup dilewati); null = tidak diketahui. */
+  previousLeftoverByIngredient: Record<string, number | null>;
   closed: boolean;
-  /** Waktu terakhir disimpan (ISO) atau null jika belum pernah direkap. */
+  /** Waktu terakhir rekap porsi disimpan (ISO) atau null jika belum pernah direkap. */
   savedAt: string | null;
+  /** Waktu terakhir stok disimpan (ISO) atau null. */
+  stockSavedAt: string | null;
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -53,91 +67,114 @@ export async function getActiveMenus(): Promise<ActiveMenu[]> {
   return data ?? [];
 }
 
-export async function getStockIngredients(): Promise<StockIngredient[]> {
-  const { data, error } = await getSupabase()
+const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+
+/** Bahan stok aktif + resepnya + rata-rata potong/kg 14 hari sampai `date`. */
+export async function getStockIngredients(date: string): Promise<StockIngredient[]> {
+  const supabase = getSupabase();
+  const ingredients = await supabase
     .from("ingredients")
-    .select("id, name")
+    .select("id, name, pieces_per_kg")
     .eq("is_chicken", true)
     .eq("is_active", true)
     .order("name", { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+  if (ingredients.error) throw ingredients.error;
+  const list = ingredients.data ?? [];
+  if (list.length === 0) return [];
+
+  const ids = list.map((i) => i.id as string);
+  const [recipes, purchases] = await Promise.all([
+    supabase.from("menu_ingredients").select("menu_id, ingredient_id, qty_per_portion").in("ingredient_id", ids),
+    supabase
+      .from("daily_stock")
+      .select("ingredient_id, bought_kg, bought_pieces")
+      .eq("dataset", LIVE)
+      .in("ingredient_id", ids)
+      .gte("stock_date", addDays(date, -(PIECES_PER_KG_WINDOW_DAYS - 1)))
+      .lte("stock_date", date),
+  ]);
+  if (recipes.error) throw recipes.error;
+  if (purchases.error) throw purchases.error;
+
+  return list.map((i) => ({
+    id: i.id as string,
+    name: i.name as string,
+    piecesPerKg: (i.pieces_per_kg as number | null) ?? 9,
+    averagePiecesPerKg: averagePiecesPerKg(
+      (purchases.data ?? [])
+        .filter((p) => p.ingredient_id === i.id)
+        .map((p) => ({ boughtKg: num(p.bought_kg), boughtPieces: num(p.bought_pieces) })),
+    ),
+    qtyPerPortionByMenu: Object.fromEntries(
+      (recipes.data ?? [])
+        .filter((r) => r.ingredient_id === i.id)
+        .map((r) => [r.menu_id as string, Number(r.qty_per_portion)]),
+    ),
+  }));
 }
 
 export async function getRekap(date: string): Promise<RekapForDate> {
   const supabase = getSupabase();
-  const stockCols = "ingredient_id, prepared_pieces, leftover_pieces, updated_at";
-  const [sales, context, stock, prevStock] = await Promise.all([
+  const from = addDays(date, -LEFTOVER_LOOKBACK_DAYS);
+  const [sales, context, stock, history, closedDays] = await Promise.all([
     supabase.from("daily_sales").select("menu_id, qty, updated_at").eq("dataset", LIVE).eq("sale_date", date),
     supabase.from("daily_context").select("tag, updated_at").eq("dataset", LIVE).eq("ctx_date", date).maybeSingle(),
-    supabase.from("daily_stock").select(stockCols).eq("dataset", LIVE).eq("stock_date", date),
-    supabase.from("daily_stock").select("ingredient_id, leftover_pieces").eq("dataset", LIVE).eq("stock_date", addDays(date, -1)),
+    supabase
+      .from("daily_stock")
+      .select("ingredient_id, bought_kg, bought_pieces, leftover_pieces, updated_at")
+      .eq("dataset", LIVE)
+      .eq("stock_date", date),
+    supabase
+      .from("daily_stock")
+      .select("ingredient_id, stock_date, leftover_pieces")
+      .eq("dataset", LIVE)
+      .gte("stock_date", from)
+      .lte("stock_date", addDays(date, -1)),
+    supabase
+      .from("daily_context")
+      .select("ctx_date")
+      .eq("dataset", LIVE)
+      .eq("tag", "tutup")
+      .gte("ctx_date", from)
+      .lte("ctx_date", addDays(date, -1)),
   ]);
-  if (sales.error) throw sales.error;
-  if (context.error) throw context.error;
-  if (stock.error) throw stock.error;
-  if (prevStock.error) throw prevStock.error;
+  for (const r of [sales, context, stock, history, closedDays]) if (r.error) throw r.error;
 
   const closed = context.data?.tag === "tutup";
-  const stamps = [
+  const salesStamps = [
     ...(sales.data ?? []).map((r) => r.updated_at as string),
-    ...(stock.data ?? []).map((r) => r.updated_at as string),
     ...(closed && context.data ? [context.data.updated_at as string] : []),
   ].sort();
+  const stockStamps = (stock.data ?? []).map((r) => r.updated_at as string).sort();
+
+  // Sisa terakhir per bahan: kemarin, atau lebih jauh jika hari-hari di antaranya tutup.
+  const previousDates = Array.from({ length: LEFTOVER_LOOKBACK_DAYS }, (_, i) => addDays(date, -(i + 1)));
+  const closedSet = new Set((closedDays.data ?? []).map((r) => r.ctx_date as string));
+  const leftoverByIngredient: Record<string, Record<string, number | null>> = {};
+  for (const r of history.data ?? []) {
+    (leftoverByIngredient[r.ingredient_id as string] ??= {})[r.stock_date as string] = num(r.leftover_pieces);
+  }
+  const ingredientIds = new Set([
+    ...Object.keys(leftoverByIngredient),
+    ...(stock.data ?? []).map((r) => r.ingredient_id as string),
+  ]);
 
   return {
     qtyByMenu: Object.fromEntries((sales.data ?? []).map((r) => [r.menu_id as string, r.qty as number])),
     stockByIngredient: Object.fromEntries(
       (stock.data ?? []).map((r) => [
         r.ingredient_id as string,
-        { prepared: r.prepared_pieces as number, leftover: r.leftover_pieces as number },
+        { boughtKg: num(r.bought_kg), boughtPieces: num(r.bought_pieces), leftover: num(r.leftover_pieces) },
       ]),
     ),
-    prevLeftoverByIngredient: Object.fromEntries(
-      (prevStock.data ?? []).map((r) => [r.ingredient_id as string, r.leftover_pieces as number]),
+    previousLeftoverByIngredient: Object.fromEntries(
+      [...ingredientIds].map((id) => [
+        id,
+        findPreviousLeftover(previousDates, leftoverByIngredient[id] ?? {}, closedSet),
+      ]),
     ),
     closed,
-    savedAt: stamps.at(-1) ?? null,
+    savedAt: salesStamps.at(-1) ?? null,
+    stockSavedAt: stockStamps.at(-1) ?? null,
   };
-}
-
-export type StockInputItem = { ingredientId: string; prepared: number | null; leftover: number | null };
-
-/**
- * Validasi stok dari form. Keduanya kosong = tidak dicatat (baris lama dihapus).
- * Jika diisi: keduanya wajib, angka bulat 0–STOCK_MAX, dan sisa ≤ disiapkan.
- */
-export function cleanStockInput(
-  raw: unknown,
-  allowedIds: Set<string>,
-): { ok: true; upserts: (StockEntry & { ingredientId: string })[]; clearIds: string[] } | { ok: false; error: string } {
-  if (raw === undefined || raw === null) return { ok: true, upserts: [], clearIds: [] };
-  if (!Array.isArray(raw)) return { ok: false, error: "Data stok tidak valid." };
-
-  const upserts: (StockEntry & { ingredientId: string })[] = [];
-  const clearIds: string[] = [];
-  const seen = new Set<string>();
-  const isQty = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= STOCK_MAX;
-
-  for (const item of raw as Partial<StockInputItem>[]) {
-    const id = item?.ingredientId;
-    if (typeof id !== "string" || !allowedIds.has(id) || seen.has(id)) {
-      return { ok: false, error: "Ada bahan stok yang tidak dikenal. Muat ulang halaman." };
-    }
-    seen.add(id);
-    const { prepared, leftover } = item;
-    if ((prepared === null || prepared === undefined) && (leftover === null || leftover === undefined)) {
-      clearIds.push(id);
-      continue;
-    }
-    if (prepared === null || prepared === undefined || leftover === null || leftover === undefined) {
-      return { ok: false, error: "Isi stok dua-duanya (disiapkan dan sisa), atau kosongkan keduanya." };
-    }
-    if (!isQty(prepared) || !isQty(leftover)) {
-      return { ok: false, error: `Stok harus angka bulat 0–${STOCK_MAX} potong.` };
-    }
-    if (leftover > prepared) return { ok: false, error: "Sisa ke freezer tidak boleh lebih dari yang disiapkan." };
-    upserts.push({ ingredientId: id, prepared, leftover });
-  }
-  return { ok: true, upserts, clearIds };
 }

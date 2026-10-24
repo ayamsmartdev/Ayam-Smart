@@ -17,7 +17,7 @@ export default async function RekapPage({ searchParams }: PageProps<"/rekap">) {
   let stockIngredients;
   let rekap;
   try {
-    [menus, stockIngredients, rekap] = await Promise.all([getActiveMenus(), getStockIngredients(), getRekap(date)]);
+    [menus, stockIngredients, rekap] = await Promise.all([getActiveMenus(), getStockIngredients(date), getRekap(date)]);
   } catch {
     return (
       <>

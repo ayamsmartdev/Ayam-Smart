@@ -57,11 +57,14 @@ menjadi ±12 kategori.
 
 ### F2 — Input Rekap Penjualan Harian (P1)
 Form rekap per tanggal: daftar **kategori menu** aktif dengan tombol +/- dan input angka, ditambah
-**stok ayam per bahan yang dibeli per kg** (saat ini hanya dada): potong yang disiapkan hari itu (segar +
-diambil dari freezer) dan potong sisa yang masuk freezer saat tutup (D-26, D-28). Klien tidak punya catatan penjualan; per kategori lebih realistis diingat.
+**stok ayam per bahan yang dibeli per kg** (saat ini hanya dada): **belanja** hari itu (kg + jumlah potong
+opsional, bisa diisi kapan saja) dan **sisa** yang masuk freezer saat tutup. Sistem menampilkan tersedia, sisa
+seharusnya (dari rekap × resep), dan **selisih** (D-26, D-28, D-29). Klien tidak punya catatan penjualan; per
+kategori lebih realistis diingat.
 
 **Kriteria penerimaan**
-- Stok ayam boleh dikosongkan; jika diisi, sisa tidak boleh lebih dari yang disiapkan.
+- Stok ayam boleh dikosongkan. Belanja bisa disimpan sendiri (pagi/siang) tanpa menunggu rekap porsi.
+- Selisih hanya ditampilkan jika sisa hari sebelumnya tercatat; jika jumlah potong belanja kosong, selisih diberi tanda "perkiraan".
 - Default tanggal = hari ini (WIB). Bisa memilih tanggal lain untuk mengisi hari yang terlewat.
 - Mengisi ulang tanggal yang sama memperbarui data, bukan menduplikasi.
 - Setelah disimpan, forecast dihitung ulang otomatis. Jika forecast gagal, data tetap tersimpan
@@ -95,7 +98,7 @@ Upload data penjualan historis dengan template.
 ### F6 — Rekomendasi Bahan Baku (P1)
 **Kriteria penerimaan**
 - Kebutuhan bahan untuk besok dan 5 hari ke depan, sudah termasuk buffer.
-- Ayam ditampilkan dalam potong dan **kg yang perlu dibeli**: dikurangi sisa di freezer, dibulatkan ke atas per 0,5 kg (D-27).
+- Ayam ditampilkan dalam potong dan **kg yang perlu dibeli**: dikurangi sisa di freezer, dibagi rata-rata potong/kg 14 hari terakhir, dibulatkan ke atas per 0,5 kg (D-27, D-29).
 - Menampilkan asal perhitungan (prediksi × resep + buffer) agar bisa dijelaskan.
 
 ### F7 — Food Waste (P1)
@@ -162,7 +165,7 @@ Bisa diangkat ke sprint jika disepakati bersama klien:
 | Q-02 | Resep/rasio bahan per porsi (ayam, nasi, sambal, tepung, minyak, sebisanya) | Klien | Sebagian: 1 potong dada per porsi menu ayam, 2 untuk steak double. Bahan lain belum |
 | Q-03 | Ayam dibeli per ekor atau per kg; 1 ekor dipotong jadi berapa potong | Klien | Terjawab (24 Okt): beli dada saja per kg di pasar, harian; 1 kg = 9–10 potong (D-27) |
 | Q-04 | Estimasi pemilik: rata-rata porsi hari biasa vs akhir pekan, hari paling ramai/sepi, hari tutup (untuk kalibrasi simulasi) | Klien | Sebagian: 40–50 porsi ayam/hari; ramai awal bulan, tanggal tua standar, promo online berpengaruh; geprek bakar 60–70%. Pola mingguan & hari tutup belum |
-| Q-05 | Persetujuan PIN; dashboard boleh dilihat tanpa PIN atau ikut dilindungi | Klien | Terbuka |
+| Q-05 | Persetujuan PIN; dashboard boleh dilihat tanpa PIN atau ikut dilindungi | Klien | Sebagian (24 Okt): PIN disetujui. Dashboard tanpa PIN belum dijawab (sementara terbuka) |
 | Q-06 | Siapa yang menginput rekap harian, dan kapan | Klien | Terbuka |
 | Q-07 | Logo dan kode warna HEX (sementara pakai palet usulan) | Klien | Terbuka |
 | Q-08 | Contoh format export aplikasi kasir yang sedang dibuat | Klien | Terbuka |

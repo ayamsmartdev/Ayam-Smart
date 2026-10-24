@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { saveRekap } from "@/actions/rekap";
+import { saveRekap, saveStock, type SaveRekapResult } from "@/actions/rekap";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { useLeaveGuard } from "@/components/hooks/use-leave-guard";
 import { Button } from "@/components/ui/button";
@@ -13,31 +13,27 @@ import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { addDays, formatDayLong, relativeDayLabel } from "@/lib/date";
 import { formatNumber } from "@/lib/format";
+import type { StockInputItem, StockValues } from "@/lib/stock";
+import {
+  EMPTY_DRAFT,
+  parseInt0,
+  parseKg,
+  sanitizeStockField,
+  StockCard,
+  type StockCardIngredient,
+  type StockDraft,
+  stockDraftError,
+} from "./stock-card";
 
 type Menu = { id: string; name: string; description: string | null };
-type StockIngredient = { id: string; name: string };
 type Initial = {
   qtyByMenu: Record<string, number>;
-  stockByIngredient: Record<string, { prepared: number; leftover: number }>;
-  prevLeftoverByIngredient: Record<string, number>;
+  stockByIngredient: Record<string, StockValues>;
+  previousLeftoverByIngredient: Record<string, number | null>;
   closed: boolean;
   savedAt: string | null;
+  stockSavedAt: string | null;
 };
-/** Isian stok disimpan sebagai teks agar bisa kosong ("belum dicatat"). */
-type StockDraft = { prepared: string; leftover: string };
-
-const STOCK_MAX = 2000;
-
-/** Pesan kesalahan stok satu bahan, atau null jika valid (termasuk keduanya kosong). */
-function stockError(d: StockDraft): string | null {
-  if (d.prepared === "" && d.leftover === "") return null;
-  if (d.prepared === "" || d.leftover === "") return "Isi dua-duanya, atau kosongkan keduanya.";
-  const p = Number(d.prepared);
-  const l = Number(d.leftover);
-  if (p > STOCK_MAX || l > STOCK_MAX) return `Maksimal ${STOCK_MAX} potong.`;
-  if (l > p) return "Sisa tidak boleh lebih dari yang disiapkan.";
-  return null;
-}
 
 const MAX_DAYS_BACK = 30;
 
@@ -51,6 +47,13 @@ function formatSavedAt(iso: string): string {
   }).format(new Date(iso));
 }
 
+const toText = (v: number | null) => (v === null ? "" : String(v).replace(".", ","));
+
+function initialDraft(v: StockValues | undefined): StockDraft {
+  if (!v) return EMPTY_DRAFT;
+  return { kg: toText(v.boughtKg), pieces: toText(v.boughtPieces), leftover: toText(v.leftover) };
+}
+
 export function RekapForm({
   menus,
   stockIngredients,
@@ -59,7 +62,7 @@ export function RekapForm({
   initial,
 }: {
   menus: Menu[];
-  stockIngredients: StockIngredient[];
+  stockIngredients: StockCardIngredient[];
   date: string;
   today: string;
   initial: Initial;
@@ -70,19 +73,17 @@ export function RekapForm({
     Object.fromEntries(menus.map((m) => [m.id, initial.qtyByMenu[m.id] ?? 0])),
   );
   const [stock, setStock] = useState<Record<string, StockDraft>>(() =>
-    Object.fromEntries(
-      stockIngredients.map((i) => {
-        const s = initial.stockByIngredient[i.id];
-        return [i.id, s ? { prepared: String(s.prepared), leftover: String(s.leftover) } : { prepared: "", leftover: "" }];
-      }),
-    ),
+    Object.fromEntries(stockIngredients.map((i) => [i.id, initialDraft(initial.stockByIngredient[i.id])])),
   );
   const [savedAt, setSavedAt] = useState(initial.savedAt);
-  const [dirty, setDirty] = useState(false);
+  const [stockSavedAt, setStockSavedAt] = useState(initial.stockSavedAt);
+  const [salesDirty, setSalesDirty] = useState(false);
+  const [stockDirty, setStockDirty] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [needPin, setNeedPin] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  const dirty = salesDirty || stockDirty;
   const total = Object.values(qty).reduce((a, b) => a + b, 0);
   const prev = addDays(date, -1);
   const next = addDays(date, 1);
@@ -90,33 +91,29 @@ export function RekapForm({
   const canNext = next <= today;
 
   const { pendingHref, clearPending } = useLeaveGuard(dirty);
-  const stockInvalid = !closed && stockIngredients.some((i) => stockError(stock[i.id]) !== null);
-  const stockFilled = stockIngredients.some((i) => stock[i.id].prepared !== "");
-  const canSave = (closed || total > 0) && !stockInvalid;
+  const stockInvalid = stockIngredients.some((i) => stockDraftError(stock[i.id] ?? EMPTY_DRAFT) !== null);
+  const canSaveRekap = (closed || total > 0) && !stockInvalid;
+  const canSaveStockOnly = stockDirty && !stockInvalid;
+  const stockHasValues = stockIngredients.some((i) => Object.values(stock[i.id] ?? EMPTY_DRAFT).some((v) => v !== ""));
+
+  const stockPayload = (): StockInputItem[] =>
+    stockIngredients.map((i) => {
+      const d = stock[i.id] ?? EMPTY_DRAFT;
+      return { ingredientId: i.id, boughtKg: parseKg(d.kg), boughtPieces: parseInt0(d.pieces), leftover: parseInt0(d.leftover) };
+    });
 
   const updateStock = (id: string, field: keyof StockDraft, raw: string) => {
-    const value = raw.replace(/\D/g, "").slice(0, 4);
-    setStock((prevStock) => ({ ...prevStock, [id]: { ...prevStock[id], [field]: value } }));
-    setDirty(true);
+    const value = sanitizeStockField(field, raw);
+    if (value === null) return; // ketikan tidak sesuai format (mis. 3 desimal) diabaikan
+    setStock((prevStock) => ({ ...prevStock, [id]: { ...(prevStock[id] ?? EMPTY_DRAFT), [field]: value } }));
+    setStockDirty(true);
   };
 
-  /** Simpan ke server. True jika berhasil. */
-  const persist = async (): Promise<boolean> => {
-    // Jika sesi PIN habis, proxy.ts memotong permintaan sebelum action berjalan,
-    // sehingga hasilnya kosong/gagal. Tangani agar pengguna tahu datanya belum tersimpan.
-    const result = await saveRekap({
-      date,
-      closed,
-      items: menus.map((m) => ({ menuId: m.id, qty: qty[m.id] ?? 0 })),
-      stock: stockIngredients.map((i) => ({
-        ingredientId: i.id,
-        prepared: stock[i.id].prepared === "" ? null : Number(stock[i.id].prepared),
-        leftover: stock[i.id].leftover === "" ? null : Number(stock[i.id].leftover),
-      })),
-    }).catch(() => null);
+  /** Tangani hasil action. Hasil kosong = proxy memotong permintaan (sesi PIN habis). */
+  const handle = (result: SaveRekapResult | null, what: string): result is Extract<SaveRekapResult, { ok: true }> => {
     if (!result) {
       setNeedPin(true);
-      setToast("Rekap belum tersimpan. Sesi PIN mungkin habis, masukkan PIN lagi.");
+      setToast(`${what} belum tersimpan. Sesi PIN mungkin habis, masukkan PIN lagi.`);
       return false;
     }
     if (!result.ok) {
@@ -124,40 +121,77 @@ export function RekapForm({
       setToast(result.error);
       return false;
     }
-    setSavedAt(result.savedAt);
-    setDirty(false);
     setNeedPin(false);
+    return true;
+  };
+
+  /** Simpan rekap porsi + stok sekaligus. True jika berhasil. */
+  const persistAll = async (): Promise<boolean> => {
+    const result = await saveRekap({
+      date,
+      closed,
+      items: menus.map((m) => ({ menuId: m.id, qty: qty[m.id] ?? 0 })),
+      stock: stockPayload(),
+    }).catch(() => null);
+    if (!handle(result, "Rekap")) return false;
+    setSavedAt(result.savedAt);
+    setStockSavedAt(stockHasValues ? result.savedAt : null);
+    setSalesDirty(false);
+    setStockDirty(false);
     setToast(
       closed
         ? "Tersimpan: warung tutup."
-        : `Rekap tersimpan: ${formatNumber(total)} porsi${stockFilled ? ", stok dicatat" : ""}.`,
+        : `Rekap tersimpan: ${formatNumber(total)} porsi${stockHasValues ? ", stok dicatat" : ""}.`,
     );
+    return true;
+  };
+
+  /** Simpan stok saja (belanja pagi/siang, atau sisa). True jika berhasil. */
+  const persistStock = async (): Promise<boolean> => {
+    const result = await saveStock({ date, stock: stockPayload() }).catch(() => null);
+    if (!handle(result, "Stok")) return false;
+    setStockSavedAt(stockHasValues ? result.savedAt : null);
+    setStockDirty(false);
+    setToast(stockHasValues ? "Stok tersimpan." : "Catatan stok hari ini dihapus.");
     return true;
   };
 
   const save = () =>
     startTransition(async () => {
-      if (await persist()) router.refresh();
+      if (await persistAll()) router.refresh();
     });
 
+  const saveStockOnly = () =>
+    startTransition(async () => {
+      if (await persistStock()) router.refresh();
+    });
+
+  // Saat pindah halaman: simpan semuanya bila rekap porsi bisa disimpan; jika hanya stok yang berubah, simpan stok.
+  const canSaveBeforeLeaving = salesDirty ? canSaveRekap : canSaveStockOnly;
   const saveThenLeave = (href: string) =>
     startTransition(async () => {
-      if (await persist()) {
-        clearPending();
-        router.push(href);
-      } else {
-        clearPending(); // tutup dialog agar pesan kesalahan terlihat
-      }
+      const ok = salesDirty ? await persistAll() : await persistStock();
+      clearPending(); // tutup dialog; jika gagal, pesan kesalahan jadi terlihat
+      if (ok) router.push(href);
     });
 
   const leaveWithoutSaving = (href: string) => {
-    setDirty(false);
+    setSalesDirty(false);
+    setStockDirty(false);
     clearPending();
     router.push(href);
   };
 
   const navClass =
     "grid size-11 place-items-center rounded-full text-brand-700 hover:bg-white/60 aria-disabled:pointer-events-none aria-disabled:opacity-35";
+
+  const statusText = dirty
+    ? "Ada perubahan yang belum disimpan."
+    : savedAt
+      ? `Sudah direkap, terakhir disimpan ${formatSavedAt(savedAt)}.`
+      : stockSavedAt
+        ? "Stok sudah dicatat, porsi terjual belum direkap."
+        : "Belum direkap untuk tanggal ini.";
 
   return (
     <div className="space-y-5">
@@ -186,20 +220,23 @@ export function RekapForm({
         </Link>
       </div>
 
-      <p
-        className={cn(
-          "flex items-center gap-2 px-1 text-[14px]",
-          dirty ? "font-semibold text-sambal-700" : savedAt ? "font-medium text-daun-600" : "font-medium text-ink-soft",
-        )}
-        aria-live="polite"
-      >
-        {dirty ? <span className="size-2 shrink-0 rounded-full bg-sambal-500" aria-hidden="true" /> : null}
-        {dirty
-          ? "Ada perubahan yang belum disimpan."
-          : savedAt
-            ? `Sudah direkap, terakhir disimpan ${formatSavedAt(savedAt)}.`
-            : "Belum direkap untuk tanggal ini."}
-      </p>
+      <div className="flex items-start justify-between gap-3 px-1">
+        <p
+          className={cn(
+            "flex items-center gap-2 text-[14px]",
+            dirty ? "font-semibold text-sambal-700" : savedAt ? "font-medium text-daun-600" : "font-medium text-ink-soft",
+          )}
+          aria-live="polite"
+        >
+          {dirty ? <span className="size-2 shrink-0 rounded-full bg-sambal-500" aria-hidden="true" /> : null}
+          {statusText}
+        </p>
+        {stockIngredients.length > 0 ? (
+          <a href="#stock-heading" className="shrink-0 text-[14px] font-semibold text-brand-700">
+            Isi belanja ↓
+          </a>
+        ) : null}
+      </div>
 
       <label className="glass flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-panel px-4">
         <span>
@@ -211,7 +248,7 @@ export function RekapForm({
           checked={closed}
           onChange={(e) => {
             setClosed(e.target.checked);
-            setDirty(true);
+            setSalesDirty(true);
           }}
           className="peer sr-only"
         />
@@ -239,7 +276,7 @@ export function RekapForm({
                 value={qty[m.id] ?? 0}
                 onChange={(v) => {
                   setQty((prevQty) => ({ ...prevQty, [m.id]: v }));
-                  setDirty(true);
+                  setSalesDirty(true);
                 }}
                 max={9999}
               />
@@ -249,70 +286,20 @@ export function RekapForm({
       </section>
 
       {stockIngredients.length > 0 ? (
-        <section aria-labelledby="stock-heading" className={cn(closed && "pointer-events-none opacity-40")}>
-          <h2 id="stock-heading" className="px-1 text-[15px] font-semibold text-ink-soft">
-            Stok ayam
-          </h2>
-          <p className="mb-2 px-1 text-[13px] text-ink-soft">
-            Opsional, dalam potong. Disiapkan = potongan segar + yang diambil dari freezer.
-          </p>
-          <ul className="glass divide-y divide-line/70 rounded-panel">
-            {stockIngredients.map((ing) => {
-              const d = stock[ing.id];
-              const err = closed ? null : stockError(d);
-              const used = !err && d.prepared !== "" ? Number(d.prepared) - Number(d.leftover) : null;
-              const prevLeftover = initial.prevLeftoverByIngredient[ing.id];
-              return (
-                <li key={ing.id} className="px-4 py-3">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-[16px] font-medium">{ing.name}</span>
-                    {prevLeftover !== undefined ? (
-                      <span className="text-[13px] text-ink-soft">Sisa kemarin {formatNumber(prevLeftover)}</span>
-                    ) : null}
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    {(
-                      [
-                        ["prepared", "Disiapkan"],
-                        ["leftover", "Sisa ke freezer"],
-                      ] as const
-                    ).map(([field, label]) => (
-                      <label key={field} className="block">
-                        <span className="mb-1 block text-[13px] font-medium text-ink-soft">{label}</span>
-                        <span className="relative block">
-                          <input
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            aria-label={`${label} ${ing.name}`}
-                            value={d[field]}
-                            onChange={(e) => updateStock(ing.id, field, e.target.value)}
-                            placeholder="—"
-                            className={cn(
-                              "h-12 w-full rounded-row bg-white/70 pl-3 pr-16 text-right text-[18px] font-bold tabular-nums ring-1 ring-line focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300",
-                              err && "ring-2 ring-sambal-300",
-                            )}
-                          />
-                          <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-[14px] text-ink-soft">
-                            potong
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  {err ? (
-                    <p role="alert" className="mt-2 text-[13px] font-semibold text-sambal-700">
-                      {err}
-                    </p>
-                  ) : used !== null ? (
-                    <p className="mt-2 text-[13px] text-ink-soft">
-                      Terpakai {formatNumber(used)} potong (terjual + rusak)
-                    </p>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <StockCard
+          ingredients={stockIngredients}
+          drafts={stock}
+          previousLeftover={initial.previousLeftoverByIngredient}
+          qtyByMenu={qty}
+          salesFilled={total > 0}
+          closed={closed}
+          dirty={stockDirty}
+          invalid={stockInvalid}
+          pending={pending}
+          savedLabel={stockSavedAt ? `Stok tersimpan ${formatSavedAt(stockSavedAt)}.` : null}
+          onChange={updateStock}
+          onSave={saveStockOnly}
+        />
       ) : null}
 
       {needPin ? (
@@ -331,7 +318,7 @@ export function RekapForm({
             {closed ? "Tutup" : `${formatNumber(total)} porsi`}
           </span>
         </p>
-        <Button onClick={save} disabled={pending || !canSave}>
+        <Button onClick={save} disabled={pending || !canSaveRekap}>
           {pending ? "Menyimpan…" : savedAt ? "Simpan perubahan" : "Simpan rekap"}
         </Button>
       </div>
@@ -342,7 +329,7 @@ export function RekapForm({
         title="Rekap belum disimpan"
         description={`Perubahan untuk ${relativeDayLabel(date, today).toLowerCase()} akan hilang kalau kamu pindah halaman sekarang.`}
       >
-        {canSave ? (
+        {canSaveBeforeLeaving ? (
           <Button onClick={() => pendingHref && saveThenLeave(pendingHref)} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan lalu pindah"}
           </Button>

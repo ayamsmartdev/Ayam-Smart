@@ -123,11 +123,11 @@ function IngredientForm({
       {unit === "potong" && isChicken ? (
         <div className="flex items-center justify-between gap-3 rounded-row bg-white/55 px-3 py-2">
           <span>
-            <span className="block text-[15px] font-medium">Potong per kg</span>
-            <span className="block text-[13px] text-ink-soft">Dada ±9–10; tiap potongan beda</span>
+            <span className="block text-[15px] font-medium">Perkiraan potong per kg</span>
+            <span className="block text-[13px] text-ink-soft">Dipakai jika jumlah potong belanja tidak diisi</span>
           </span>
           <Stepper
-            label="Potong per kg"
+            label="Perkiraan potong per kg"
             value={piecesPerKg}
             onChange={setPiecesPerKg}
             min={PER_KG.min}
@@ -197,7 +197,7 @@ export function IngredientManager({ ingredients }: { ingredients: Ingredient[] }
                 <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13px] text-ink-soft">
                   per {item.unit}
                   {item.isChicken ? (
-                    <Badge tone="kriuk">Dibeli per kg · {item.piecesPerKg ?? "?"} potong/kg</Badge>
+                    <Badge tone="kriuk">Dibeli per kg · perkiraan {item.piecesPerKg ?? "?"} potong/kg</Badge>
                   ) : null}
                   {!item.isActive ? <Badge>Nonaktif</Badge> : null}
                 </span>

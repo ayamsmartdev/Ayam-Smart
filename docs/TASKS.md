@@ -55,9 +55,11 @@
 > - K3 Pengaturan memakai istilah kategori + isi varian; varian tampil di Rekap; label bahan "dibeli per kg" — ✅ selesai
 > - K2b (usulan saat tes, disetujui Fillian) Potong per kg & stok per bahan, migrasi `0003_konversi_per_bahan.sql` (D-28) — ✅ selesai
 >   (K1–K3 + K2b dites Fillian dengan Supabase asli, di-push `b1b75b2`)
-> - K4 Rekap: bagian stok ayam per bahan (opsional, sisa ≤ disiapkan, sisa kemarin sebagai pengingat, tutup = stok dihapus) — ✅ file siap
-> - K5 SQL sekali pakai: "Ayam" → "Ayam dada", 12 kategori + isi varian + resep potong dada (tidak di-commit) + panduan PDF baru — ✅ file siap
-> K4 + K5 dites bersamaan oleh Fillian.
+> - K4 Rekap: bagian stok ayam per bahan — ✅ selesai (dites & di-push `94df629`; desain stok diganti K6)
+> - K5 SQL sekali pakai: "Ayam" → "Ayam dada", 12 kategori + isi varian + resep potong dada (di luar repo) + panduan PDF v2 — ✅ selesai, dijalankan di Supabase
+> - K6a (D-29) Migrasi `0004_belanja_sisa.sql`; kartu stok: belanja kg + potong opsional (simpan kapan saja) + sisa saat tutup; tutup tidak menghapus stok — ✅ file siap
+> - K6b Selisih (tersedia → sisa seharusnya → selisih) + rata-rata potong/kg 14 hari + label "perkiraan" di bahan; logika murni `src/lib/stock.ts` — ✅ file siap
+> K6a + K6b dites bersamaan oleh Fillian. Panduan PDF v3 (alur harian) menyusul setelah tes.
 
 - [x] T-10 (F) **Spike Python di Vercel (hari pertama, go/no-go D-03):** fungsi `api/forecast.py` minimal dengan numpy (Ridge numpy, D-25), deploy berdampingan dengan Next.js, ukur cold start, cek tidak bentrok dengan rute Next.js. Hasil dicatat di ARCHITECTURE §11
   - **10a** ✅ file siap: `api/forecast.py` (BaseHTTPRequestHandler, tanpa FastAPI; wajib `X-Forecast-Secret`; laporkan versi, waktu import, waktu fit), `forecasting/models.py` (Ridge numpy setara scikit-learn StandardScaler+Ridge), `tests/test_models.py` (11 tes, dibandingkan dengan scikit-learn), `requirements.txt` (numpy saja), `requirements-dev.txt`, `pytest.ini`, `vercel.json` (`excludeFiles`). Diuji Fillian di laptop & Vercel
@@ -138,3 +140,4 @@
 - 2026-10-23 — T-10 **selesai (10b)**: diuji Fillian — lokal 11 tes lolos, fungsi menolak tanpa/salah secret; di Vercel `sin1` import 217 ms, fit 40/1,1 ms, request 0,15–0,19 dtk, rute Next.js aman. D-03 berlaku, D-25 dicatat (Ridge numpy, tanpa scikit-learn/FastAPI di runtime). Berikutnya T-16.
 - 2026-10-24 — Data klien masuk (CSV + Excel, tidak disimpan di repo): 41 menu/11 kelompok, 40–50 porsi ayam/hari, beli dada per kg (9–10 potong/kg), sisa ke freezer, ramai awal bulan, favorit geprek bakar 60–70%, tidak ada catatan penjualan. Diputuskan Fillian: rekap per kategori + stok ayam (D-26), ayam per kg (D-27). K1–K3 dikerjakan berurutan atas permintaan Fillian.
 - 2026-10-24 — Setup komputer rumah (Node 24.22.1, Git 2.56, Python 3.12.10, `.env.local` baru; secret lokal dibuat ulang). Migrasi 0002 dijalankan di Supabase, tes Setelan & Bahan K1–K3 lolos. Ditambah K2b: potong per kg & stok per bahan (D-28) agar siap jika ada paha/sayap.
+- 2026-10-24 — K4 + K5 lolos uji Fillian (12 kategori live, PIN disetujui klien). Alur harian dibahas: omzet & harga ayam di luar scope, lembar turus di luar scope. Diputuskan D-29: stok = belanja (kg + potong opsional) + sisa saat tutup → selisih; ukuran ayam berubah harian sehingga potong/kg jadi perkiraan + rata-rata 14 hari. K6a + K6b dikerjakan.

@@ -15,7 +15,29 @@ import { addDays, formatDayLong, relativeDayLabel } from "@/lib/date";
 import { formatNumber } from "@/lib/format";
 
 type Menu = { id: string; name: string; description: string | null };
-type Initial = { qtyByMenu: Record<string, number>; closed: boolean; savedAt: string | null };
+type StockIngredient = { id: string; name: string };
+type Initial = {
+  qtyByMenu: Record<string, number>;
+  stockByIngredient: Record<string, { prepared: number; leftover: number }>;
+  prevLeftoverByIngredient: Record<string, number>;
+  closed: boolean;
+  savedAt: string | null;
+};
+/** Isian stok disimpan sebagai teks agar bisa kosong ("belum dicatat"). */
+type StockDraft = { prepared: string; leftover: string };
+
+const STOCK_MAX = 2000;
+
+/** Pesan kesalahan stok satu bahan, atau null jika valid (termasuk keduanya kosong). */
+function stockError(d: StockDraft): string | null {
+  if (d.prepared === "" && d.leftover === "") return null;
+  if (d.prepared === "" || d.leftover === "") return "Isi dua-duanya, atau kosongkan keduanya.";
+  const p = Number(d.prepared);
+  const l = Number(d.leftover);
+  if (p > STOCK_MAX || l > STOCK_MAX) return `Maksimal ${STOCK_MAX} potong.`;
+  if (l > p) return "Sisa tidak boleh lebih dari yang disiapkan.";
+  return null;
+}
 
 const MAX_DAYS_BACK = 30;
 
@@ -31,11 +53,13 @@ function formatSavedAt(iso: string): string {
 
 export function RekapForm({
   menus,
+  stockIngredients,
   date,
   today,
   initial,
 }: {
   menus: Menu[];
+  stockIngredients: StockIngredient[];
   date: string;
   today: string;
   initial: Initial;
@@ -44,6 +68,14 @@ export function RekapForm({
   const [closed, setClosed] = useState(initial.closed);
   const [qty, setQty] = useState<Record<string, number>>(() =>
     Object.fromEntries(menus.map((m) => [m.id, initial.qtyByMenu[m.id] ?? 0])),
+  );
+  const [stock, setStock] = useState<Record<string, StockDraft>>(() =>
+    Object.fromEntries(
+      stockIngredients.map((i) => {
+        const s = initial.stockByIngredient[i.id];
+        return [i.id, s ? { prepared: String(s.prepared), leftover: String(s.leftover) } : { prepared: "", leftover: "" }];
+      }),
+    ),
   );
   const [savedAt, setSavedAt] = useState(initial.savedAt);
   const [dirty, setDirty] = useState(false);
@@ -58,7 +90,15 @@ export function RekapForm({
   const canNext = next <= today;
 
   const { pendingHref, clearPending } = useLeaveGuard(dirty);
-  const canSave = closed || total > 0;
+  const stockInvalid = !closed && stockIngredients.some((i) => stockError(stock[i.id]) !== null);
+  const stockFilled = stockIngredients.some((i) => stock[i.id].prepared !== "");
+  const canSave = (closed || total > 0) && !stockInvalid;
+
+  const updateStock = (id: string, field: keyof StockDraft, raw: string) => {
+    const value = raw.replace(/\D/g, "").slice(0, 4);
+    setStock((prevStock) => ({ ...prevStock, [id]: { ...prevStock[id], [field]: value } }));
+    setDirty(true);
+  };
 
   /** Simpan ke server. True jika berhasil. */
   const persist = async (): Promise<boolean> => {
@@ -68,6 +108,11 @@ export function RekapForm({
       date,
       closed,
       items: menus.map((m) => ({ menuId: m.id, qty: qty[m.id] ?? 0 })),
+      stock: stockIngredients.map((i) => ({
+        ingredientId: i.id,
+        prepared: stock[i.id].prepared === "" ? null : Number(stock[i.id].prepared),
+        leftover: stock[i.id].leftover === "" ? null : Number(stock[i.id].leftover),
+      })),
     }).catch(() => null);
     if (!result) {
       setNeedPin(true);
@@ -82,7 +127,11 @@ export function RekapForm({
     setSavedAt(result.savedAt);
     setDirty(false);
     setNeedPin(false);
-    setToast(closed ? "Tersimpan: warung tutup." : `Rekap tersimpan: ${formatNumber(total)} porsi.`);
+    setToast(
+      closed
+        ? "Tersimpan: warung tutup."
+        : `Rekap tersimpan: ${formatNumber(total)} porsi${stockFilled ? ", stok dicatat" : ""}.`,
+    );
     return true;
   };
 
@@ -198,6 +247,73 @@ export function RekapForm({
           ))}
         </ul>
       </section>
+
+      {stockIngredients.length > 0 ? (
+        <section aria-labelledby="stock-heading" className={cn(closed && "pointer-events-none opacity-40")}>
+          <h2 id="stock-heading" className="px-1 text-[15px] font-semibold text-ink-soft">
+            Stok ayam
+          </h2>
+          <p className="mb-2 px-1 text-[13px] text-ink-soft">
+            Opsional, dalam potong. Disiapkan = potongan segar + yang diambil dari freezer.
+          </p>
+          <ul className="glass divide-y divide-line/70 rounded-panel">
+            {stockIngredients.map((ing) => {
+              const d = stock[ing.id];
+              const err = closed ? null : stockError(d);
+              const used = !err && d.prepared !== "" ? Number(d.prepared) - Number(d.leftover) : null;
+              const prevLeftover = initial.prevLeftoverByIngredient[ing.id];
+              return (
+                <li key={ing.id} className="px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[16px] font-medium">{ing.name}</span>
+                    {prevLeftover !== undefined ? (
+                      <span className="text-[13px] text-ink-soft">Sisa kemarin {formatNumber(prevLeftover)}</span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        ["prepared", "Disiapkan"],
+                        ["leftover", "Sisa ke freezer"],
+                      ] as const
+                    ).map(([field, label]) => (
+                      <label key={field} className="block">
+                        <span className="mb-1 block text-[13px] font-medium text-ink-soft">{label}</span>
+                        <span className="relative block">
+                          <input
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            aria-label={`${label} ${ing.name}`}
+                            value={d[field]}
+                            onChange={(e) => updateStock(ing.id, field, e.target.value)}
+                            placeholder="—"
+                            className={cn(
+                              "h-12 w-full rounded-row bg-white/70 pl-3 pr-16 text-right text-[18px] font-bold tabular-nums ring-1 ring-line focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300",
+                              err && "ring-2 ring-sambal-300",
+                            )}
+                          />
+                          <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-[14px] text-ink-soft">
+                            potong
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {err ? (
+                    <p role="alert" className="mt-2 text-[13px] font-semibold text-sambal-700">
+                      {err}
+                    </p>
+                  ) : used !== null ? (
+                    <p className="mt-2 text-[13px] text-ink-soft">
+                      Terpakai {formatNumber(used)} potong (terjual + rusak)
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {needPin ? (
         <Link

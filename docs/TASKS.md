@@ -50,13 +50,14 @@
 
 > **Rekap per kategori + stok ayam (diputuskan 24 Okt, D-26, D-27)** — data klien masuk: 41 menu, beli dada per kg,
 > tidak ada catatan penjualan. Rencana tahap (AGENTS §4a):
-> - K1 Catat keputusan (PRD, ARCHITECTURE D-26/D-27, TASKS) — ✅ file siap
-> - K2 Migrasi `0002_kategori_stok.sql` (`pieces_per_kg`, `menus.description`, `daily_stock`) + setelan & rumus rekomendasi ke kg — ✅ file siap
-> - K3 Pengaturan memakai istilah kategori + isi varian; varian tampil di Rekap; label bahan "dibeli per kg" — ✅ file siap
-> - K2b (usulan saat tes, disetujui Fillian) Potong per kg & stok per bahan, migrasi `0003_konversi_per_bahan.sql` (D-28) — ✅ file siap
-> - K4 Rekap: bagian stok ayam (simpan, muat ulang, validasi)
-> - K5 SQL sekali pakai: 12 kategori + resep dari data klien (tidak di-commit) + perbarui panduan PDF
-> K1–K3 dites bersamaan oleh Fillian.
+> - K1 Catat keputusan (PRD, ARCHITECTURE D-26/D-27, TASKS) — ✅ selesai
+> - K2 Migrasi `0002_kategori_stok.sql` (`menus.description`, `daily_stock`) + rumus rekomendasi ke kg — ✅ selesai
+> - K3 Pengaturan memakai istilah kategori + isi varian; varian tampil di Rekap; label bahan "dibeli per kg" — ✅ selesai
+> - K2b (usulan saat tes, disetujui Fillian) Potong per kg & stok per bahan, migrasi `0003_konversi_per_bahan.sql` (D-28) — ✅ selesai
+>   (K1–K3 + K2b dites Fillian dengan Supabase asli, di-push `b1b75b2`)
+> - K4 Rekap: bagian stok ayam per bahan (opsional, sisa ≤ disiapkan, sisa kemarin sebagai pengingat, tutup = stok dihapus) — ✅ file siap
+> - K5 SQL sekali pakai: "Ayam" → "Ayam dada", 12 kategori + isi varian + resep potong dada (tidak di-commit) + panduan PDF baru — ✅ file siap
+> K4 + K5 dites bersamaan oleh Fillian.
 
 - [x] T-10 (F) **Spike Python di Vercel (hari pertama, go/no-go D-03):** fungsi `api/forecast.py` minimal dengan numpy (Ridge numpy, D-25), deploy berdampingan dengan Next.js, ukur cold start, cek tidak bentrok dengan rute Next.js. Hasil dicatat di ARCHITECTURE §11
   - **10a** ✅ file siap: `api/forecast.py` (BaseHTTPRequestHandler, tanpa FastAPI; wajib `X-Forecast-Secret`; laporkan versi, waktu import, waktu fit), `forecasting/models.py` (Ridge numpy setara scikit-learn StandardScaler+Ridge), `tests/test_models.py` (11 tes, dibandingkan dengan scikit-learn), `requirements.txt` (numpy saja), `requirements-dev.txt`, `pytest.ini`, `vercel.json` (`excludeFiles`). Diuji Fillian di laptop & Vercel

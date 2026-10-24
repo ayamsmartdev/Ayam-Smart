@@ -1,7 +1,7 @@
 import { LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
-import { getActiveMenus, getRekap, parseRekapDate } from "@/lib/data/rekap";
+import { getActiveMenus, getRekap, getStockIngredients, parseRekapDate } from "@/lib/data/rekap";
 import { todayWIB } from "@/lib/date";
 import { RekapForm } from "./rekap-form";
 
@@ -14,9 +14,10 @@ export default async function RekapPage({ searchParams }: PageProps<"/rekap">) {
   const date = parseRekapDate(tanggal, today) ?? today;
 
   let menus;
+  let stockIngredients;
   let rekap;
   try {
-    [menus, rekap] = await Promise.all([getActiveMenus(), getRekap(date)]);
+    [menus, stockIngredients, rekap] = await Promise.all([getActiveMenus(), getStockIngredients(), getRekap(date)]);
   } catch {
     return (
       <>
@@ -49,7 +50,14 @@ export default async function RekapPage({ searchParams }: PageProps<"/rekap">) {
         </Panel>
       ) : (
         // key: ganti tanggal → form mulai dari data tanggal itu, bukan sisa ketikan sebelumnya.
-        <RekapForm key={date} menus={menus} date={date} today={today} initial={rekap} />
+        <RekapForm
+          key={date}
+          menus={menus}
+          stockIngredients={stockIngredients}
+          date={date}
+          today={today}
+          initial={rekap}
+        />
       )}
     </>
   );

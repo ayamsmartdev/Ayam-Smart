@@ -242,7 +242,8 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   Beranda, Prediksi, Bahan, Waste (simpan waste belum ke DB), Import (baru unduh template).
 - **Python forecast:** spike T-10 lolos (D-03 berlaku, D-25). `api/forecast.py` masih versi spike (laporan versi & waktu),
   belum dipanggil Next.js. Ridge numpy di `forecasting/models.py` + 11 tes pembanding scikit-learn.
-- **Sedang berjalan:** rekap per kategori + stok ayam dada, ayam per kg (D-26, D-27; tahap K1–K5 di `docs/TASKS.md`).
+- **Sedang berjalan:** rekap per kategori + stok ayam per bahan, ayam per kg per bahan (D-26–D-28). K1–K3 + K2b live;
+  K4 (stok di Rekap) + K5 (isi 12 kategori lewat SQL sekali pakai, di luar repo) menunggu tes — lihat `docs/TASKS.md`.
   Tabel `menus` sekarang berisi **kategori menu**. Data asli klien (menu, harga, profil) tidak boleh masuk repo.
 - **Belum ada:** forecast sungguhan (T-16 → T-17 → T-18), simpan food waste, mode demo/live, import CSV, seed data simulasi di DB.
 - **Database:** skema di `supabase/migrations/0001_init.sql` (10 tabel, RLS tanpa policy). Isi tabel live = data asli

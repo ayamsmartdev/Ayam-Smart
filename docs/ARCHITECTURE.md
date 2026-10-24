@@ -143,9 +143,10 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 - Tanggal selalu `date` (tanpa jam), dihitung dalam Asia/Jakarta.
 - Menu/bahan yang sudah punya riwayat (rekap, waste, resep) tidak bisa dihapus (FK `restrict`); cukup `is_active = false`.
 - Satuan bahan dikunci (UI + server) jika bahan sudah dipakai di resep atau waste.
-- Rekap menyimpan **semua menu aktif termasuk 0** (0 = terjual nol). Warung tutup = hapus rekap tanggal itu
+- Rekap menyimpan **semua menu aktif termasuk 0** (0 = terjual nol). Warung tutup = hapus rekap **dan stok** tanggal itu
   + `daily_context.tag = 'tutup'`. Rekap hanya untuk hari ini s.d. 30 hari lalu dan hanya dataset `live` (D-22).
-- Stok boleh tidak diisi. Potong terpakai = `prepared_pieces − leftover_pieces` (≈ terjual + rusak).
+- Stok boleh tidak diisi (dua kolom kosong = baris dihapus); jika diisi, dua-duanya wajib dan sisa ≤ disiapkan.
+  Hanya untuk bahan aktif yang dibeli per kg. Potong terpakai = `prepared_pieces − leftover_pieces` (≈ terjual + rusak).
 - File SQL: `supabase/migrations/0001_init.sql`, `0002_kategori_stok.sql`, `0003_konversi_per_bahan.sql` (idempoten, dijalankan berurutan). Database live: project Supabase region Singapura.
 
 ---
@@ -154,8 +155,10 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 
 **Input rekap (F2) — sudah berjalan** (`src/actions/rekap.ts`)
 1. Server Action menerima tanggal + daftar `{menuId, qty}`, cek PIN (`isPinVerified`), validasi manual.
-2. Upsert ke `daily_sales` dataset `live` untuk semua menu aktif; hapus tag `tutup` jika ada. Data tersimpan di titik ini.
-3. **Belum:** panggil `runForecast('live')` (§6). Rencana: jika gagal → `forecast_runs.status = 'failed'` dan pesan
+2. Validasi stok (`cleanStockInput`) sebelum menulis apa pun.
+3. Upsert ke `daily_sales` dataset `live` untuk semua kategori aktif; upsert/hapus `daily_stock` per bahan; hapus tag
+   `tutup` jika ada. Data tersimpan di titik ini.
+4. **Belum:** panggil `runForecast('live')` (§6). Rencana: jika gagal → `forecast_runs.status = 'failed'` dan pesan
    "Data tersimpan, forecast gagal — tekan Hitung ulang". Data tetap aman.
 
 **Kelola master data — sudah berjalan** (`src/actions/menus.ts`, `ingredients.ts`, `recipes.ts`, `settings.ts`)

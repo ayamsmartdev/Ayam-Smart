@@ -1,6 +1,13 @@
 "use server";
 
-import { getActiveMenus, LIVE, parseRekapDate } from "@/lib/data/rekap";
+import {
+  cleanStockInput,
+  getActiveMenus,
+  getStockIngredients,
+  LIVE,
+  parseRekapDate,
+  type StockInputItem,
+} from "@/lib/data/rekap";
 import { isPinVerified } from "@/lib/pin";
 import { getSupabase } from "@/lib/supabase-server";
 
@@ -8,6 +15,8 @@ export type SaveRekapInput = {
   date: string;
   closed: boolean;
   items: { menuId: string; qty: number }[];
+  /** Stok per bahan yang dibeli per kg; opsional (D-26, D-28). */
+  stock?: StockInputItem[];
 };
 
 export type SaveRekapResult =
@@ -19,7 +28,8 @@ const MAX_QTY = 9999;
 /**
  * Simpan rekap satu tanggal sebagai data nyata.
  * - Buka: semua menu aktif di-upsert, termasuk yang 0 (0 = terjual nol, bukan "belum direkap").
- * - Tutup: rekap tanggal itu dihapus dan ditandai 'tutup' (dikeluarkan dari prediksi).
+ * - Tutup: rekap & stok tanggal itu dihapus dan ditandai 'tutup' (dikeluarkan dari prediksi).
+ * - Stok: baris diisi di-upsert; baris dikosongkan dihapus. Divalidasi sebelum ada yang ditulis.
  */
 export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult> {
   // Wajib di setiap Server Action tulis — jangan hanya mengandalkan proxy.ts.
@@ -39,6 +49,8 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
     if (input.closed) {
       const del = await supabase.from("daily_sales").delete().eq("dataset", LIVE).eq("sale_date", date);
       if (del.error) throw del.error;
+      const delStock = await supabase.from("daily_stock").delete().eq("dataset", LIVE).eq("stock_date", date);
+      if (delStock.error) throw delStock.error;
       const ctx = await supabase
         .from("daily_context")
         .upsert({ dataset: LIVE, ctx_date: date, tag: "tutup", note: null }, { onConflict: "dataset,ctx_date" });
@@ -46,7 +58,9 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
       return { ok: true, savedAt: new Date().toISOString() };
     }
 
-    const menus = await getActiveMenus();
+    const [menus, stockIngredients] = await Promise.all([getActiveMenus(), getStockIngredients()]);
+    const stock = cleanStockInput(input.stock, new Set(stockIngredients.map((i) => i.id)));
+    if (!stock.ok) return stock;
     const activeIds = new Set(menus.map((m) => m.id));
     const byMenu = new Map<string, number>();
     for (const item of input.items) {
@@ -66,6 +80,29 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
     const rows = menus.map((m) => ({ dataset: LIVE, sale_date: date, menu_id: m.id, qty: byMenu.get(m.id) ?? 0 }));
     const up = await supabase.from("daily_sales").upsert(rows, { onConflict: "dataset,sale_date,menu_id" });
     if (up.error) throw up.error;
+
+    if (stock.upserts.length > 0) {
+      const stockRows = stock.upserts.map((s) => ({
+        dataset: LIVE,
+        stock_date: date,
+        ingredient_id: s.ingredientId,
+        prepared_pieces: s.prepared,
+        leftover_pieces: s.leftover,
+      }));
+      const upStock = await supabase
+        .from("daily_stock")
+        .upsert(stockRows, { onConflict: "dataset,stock_date,ingredient_id" });
+      if (upStock.error) throw upStock.error;
+    }
+    if (stock.clearIds.length > 0) {
+      const clear = await supabase
+        .from("daily_stock")
+        .delete()
+        .eq("dataset", LIVE)
+        .eq("stock_date", date)
+        .in("ingredient_id", stock.clearIds);
+      if (clear.error) throw clear.error;
+    }
 
     // Hari ini buka → hapus tanda 'tutup' bila sebelumnya ada (tanda lain dibiarkan).
     const reopen = await supabase

@@ -102,7 +102,6 @@ export function getPreviewSnapshot(today: string = todayWIB()): PreviewSnapshot 
       DEMO_RECIPES,
       DEMO_INGREDIENTS,
       DEMO_SETTINGS.bufferPct,
-      DEMO_SETTINGS.piecesPerChicken,
     );
 
   const soldOn = (date: string) => totalByDate.get(date) ?? 0;

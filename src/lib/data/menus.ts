@@ -1,42 +1,54 @@
 import "server-only";
 import { getSupabase } from "@/lib/supabase-server";
 
+/** Satu baris tabel `menus` = satu kategori menu (D-26). */
 export type MenuRow = {
   id: string;
   name: string;
+  description: string | null;
   price: number | null;
   isActive: boolean;
   sortOrder: number;
 };
 
-/** Semua menu (aktif & nonaktif), urut sesuai tampilan di Rekap. */
+/** Semua kategori (aktif & nonaktif), urut sesuai tampilan di Rekap. */
 export async function getAllMenus(): Promise<MenuRow[]> {
   const { data, error } = await getSupabase()
     .from("menus")
-    .select("id, name, price, is_active, sort_order")
+    .select("id, name, description, price, is_active, sort_order")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
     name: r.name,
+    description: r.description,
     price: r.price,
     isActive: r.is_active,
     sortOrder: r.sort_order,
   }));
 }
 
-export type MenuInput = { name: string; price: number | null };
+export type MenuInput = { name: string; description: string | null; price: number | null };
 
 export const MENU_NAME_MAX = 80;
+export const MENU_DESCRIPTION_MAX = 200;
 export const MENU_PRICE_MAX = 10_000_000;
 
-/** Validasi & rapikan input menu. Mengembalikan pesan error atau data bersih. */
+const collapse = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "");
+
+/** Validasi & rapikan input kategori. Mengembalikan pesan error atau data bersih. */
 export function cleanMenuInput(raw: unknown): { ok: true; value: MenuInput } | { ok: false; error: string } {
-  const r = (raw ?? {}) as { name?: unknown; price?: unknown };
-  const name = typeof r.name === "string" ? r.name.replace(/\s+/g, " ").trim() : "";
-  if (name.length === 0) return { ok: false, error: "Nama menu wajib diisi." };
-  if (name.length > MENU_NAME_MAX) return { ok: false, error: `Nama menu maksimal ${MENU_NAME_MAX} karakter.` };
+  const r = (raw ?? {}) as { name?: unknown; description?: unknown; price?: unknown };
+  const name = collapse(r.name);
+  if (name.length === 0) return { ok: false, error: "Nama kategori wajib diisi." };
+  if (name.length > MENU_NAME_MAX) return { ok: false, error: `Nama kategori maksimal ${MENU_NAME_MAX} karakter.` };
+
+  const descriptionText = collapse(r.description);
+  if (descriptionText.length > MENU_DESCRIPTION_MAX) {
+    return { ok: false, error: `Isi varian maksimal ${MENU_DESCRIPTION_MAX} karakter.` };
+  }
+  const description = descriptionText.length > 0 ? descriptionText : null;
 
   let price: number | null = null;
   if (r.price !== null && r.price !== undefined && r.price !== "") {
@@ -46,5 +58,5 @@ export function cleanMenuInput(raw: unknown): { ok: true; value: MenuInput } | {
     }
     price = n;
   }
-  return { ok: true, value: { name, price } };
+  return { ok: true, value: { name, description, price } };
 }

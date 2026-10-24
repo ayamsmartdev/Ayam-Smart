@@ -20,6 +20,6 @@ export async function saveSettings(input: unknown): Promise<ActionResult> {
   revalidatePath("/bahan");
   return {
     ok: true,
-    message: `Setelan disimpan: cadangan ${parsed.value.bufferPct}%, 1 ekor = ${parsed.value.piecesPerChicken} potong.`,
+    message: `Setelan disimpan: cadangan ${parsed.value.bufferPct}%.`,
   };
 }

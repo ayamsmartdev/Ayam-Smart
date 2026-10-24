@@ -13,11 +13,23 @@ import { DrumstickIcon, PlusIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, DialogError } from "@/components/ui/confirm-dialog";
+import { Stepper } from "@/components/ui/stepper";
 import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 
 type Unit = "potong" | "gram" | "kg" | "porsi" | "ml" | "pcs" | "gelas";
-type Ingredient = { id: string; name: string; unit: Unit; isChicken: boolean; isActive: boolean; inUse: boolean };
+type Ingredient = {
+  id: string;
+  name: string;
+  unit: Unit;
+  isChicken: boolean;
+  piecesPerKg: number | null;
+  isActive: boolean;
+  inUse: boolean;
+};
+
+/** Sama dengan PIECES_PER_KG di src/lib/data/ingredients.ts (server). */
+const PER_KG = { min: 1, max: 20, default: 9 };
 
 const UNIT_OPTIONS: { value: Unit; label: string }[] = [
   { value: "potong", label: "potong" },
@@ -45,11 +57,12 @@ function IngredientForm({
 }: {
   initial?: Ingredient;
   pending: boolean;
-  onSubmit: (value: { name: string; unit: Unit; isChicken: boolean }) => void;
+  onSubmit: (value: { name: string; unit: Unit; isChicken: boolean; piecesPerKg: number | null }) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [unit, setUnit] = useState<Unit>(initial?.unit ?? "gram");
   const [isChicken, setIsChicken] = useState(initial?.isChicken ?? false);
+  const [piecesPerKg, setPiecesPerKg] = useState(initial?.piecesPerKg ?? PER_KG.default);
   const unitLocked = Boolean(initial?.inUse);
 
   return (
@@ -57,7 +70,8 @@ function IngredientForm({
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ name, unit, isChicken: unit === "potong" && isChicken });
+        const perKg = unit === "potong" && isChicken;
+        onSubmit({ name, unit, isChicken: perKg, piecesPerKg: perKg ? piecesPerKg : null });
       }}
     >
       <label className="block">
@@ -95,8 +109,8 @@ function IngredientForm({
       {unit === "potong" ? (
         <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-row bg-white/55 px-3">
           <span>
-            <span className="block text-[15px] font-medium">Hitung juga dalam ekor</span>
-            <span className="block text-[13px] text-ink-soft">Untuk ayam: potong diubah jadi ekor di rekomendasi</span>
+            <span className="block text-[15px] font-medium">Ayam, dibeli per kg</span>
+            <span className="block text-[13px] text-ink-soft">Potong diubah jadi kg di rekomendasi</span>
           </span>
           <input
             type="checkbox"
@@ -105,6 +119,21 @@ function IngredientForm({
             className="size-5 shrink-0 accent-brand-600"
           />
         </label>
+      ) : null}
+      {unit === "potong" && isChicken ? (
+        <div className="flex items-center justify-between gap-3 rounded-row bg-white/55 px-3 py-2">
+          <span>
+            <span className="block text-[15px] font-medium">Potong per kg</span>
+            <span className="block text-[13px] text-ink-soft">Dada ±9–10; tiap potongan beda</span>
+          </span>
+          <Stepper
+            label="Potong per kg"
+            value={piecesPerKg}
+            onChange={setPiecesPerKg}
+            min={PER_KG.min}
+            max={PER_KG.max}
+          />
+        </div>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending || name.trim().length === 0}>
         {pending ? "Menyimpan…" : "Simpan bahan"}
@@ -167,7 +196,9 @@ export function IngredientManager({ ingredients }: { ingredients: Ingredient[] }
                 </span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13px] text-ink-soft">
                   per {item.unit}
-                  {item.isChicken ? <Badge tone="kriuk">Dihitung per ekor</Badge> : null}
+                  {item.isChicken ? (
+                    <Badge tone="kriuk">Dibeli per kg · {item.piecesPerKg ?? "?"} potong/kg</Badge>
+                  ) : null}
                   {!item.isActive ? <Badge>Nonaktif</Badge> : null}
                 </span>
               </span>

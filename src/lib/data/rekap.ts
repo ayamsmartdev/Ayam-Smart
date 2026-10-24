@@ -8,7 +8,8 @@ export const LIVE = "live" as const;
 /** Rentang tanggal yang boleh direkap: hari ini sampai 30 hari ke belakang (WIB). */
 export const REKAP_MAX_DAYS_BACK = 30;
 
-export type ActiveMenu = { id: string; name: string };
+/** Kategori menu aktif (tabel `menus`, D-26). */
+export type ActiveMenu = { id: string; name: string; description: string | null };
 
 export type RekapForDate = {
   qtyByMenu: Record<string, number>;
@@ -31,7 +32,7 @@ export function parseRekapDate(value: unknown, today = todayWIB()): string | nul
 export async function getActiveMenus(): Promise<ActiveMenu[]> {
   const { data, error } = await getSupabase()
     .from("menus")
-    .select("id, name")
+    .select("id, name, description")
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });

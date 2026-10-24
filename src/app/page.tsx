@@ -26,14 +26,14 @@ export default function BerandaPage() {
               Besok, {formatDayLong(s.tomorrow)}
             </p>
             <p className="mt-3 text-[19px] font-semibold leading-snug sm:text-[22px]">
-              Siapkan{" "}
+              Beli{" "}
               <span className="text-brand-gradient align-[-0.08em] text-[64px] font-extrabold leading-none tracking-tight tabular-nums sm:text-[80px]">
-                {formatNumber(chicken?.recommended ?? 0)}
+                {formatNumber(chicken?.buyKg ?? 0, 0, 1)}
               </span>{" "}
-              <span className="whitespace-nowrap">potong ayam</span>
+              <span className="whitespace-nowrap">kg {(chicken?.ingredient.name ?? "ayam").toLowerCase()}</span>
             </p>
             <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink-soft">
-              Sekitar {formatNumber(chicken?.chickens ?? 0)} ekor, sudah termasuk cadangan{" "}
+              Untuk {formatNumber(chicken?.recommended ?? 0)} potong, sudah termasuk cadangan{" "}
               {s.settings.bufferPct}%. Perkiraan terjual{" "}
               {formatNumber(Math.round(tomorrowTotal?.predicted ?? 0))} porsi
               {tomorrowTotal?.lower != null && tomorrowTotal.upper != null

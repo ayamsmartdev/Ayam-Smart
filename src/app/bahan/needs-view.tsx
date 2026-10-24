@@ -32,14 +32,19 @@ function NeedRows({ needs, bufferPct }: { needs: IngredientNeed[]; bufferPct: nu
             </span>
           }
           title={n.ingredient.name}
-          subtitle={`Kebutuhan ${formatQuantity(Math.round(n.need), n.ingredient.unit)} + cadangan ${bufferPct}%`}
+          subtitle={
+            `Kebutuhan ${formatQuantity(Math.round(n.need), n.ingredient.unit)} + cadangan ${bufferPct}%` +
+            (n.stockUsed > 0 ? ` − sisa freezer ${formatNumber(n.stockUsed)}` : "")
+          }
           trailing={
             <>
               <p className="text-[18px] font-bold tabular-nums">
                 {formatQuantity(n.recommended, n.ingredient.unit)}
               </p>
-              {n.chickens !== null ? (
-                <p className="text-[13px] font-semibold text-kriuk-700">{formatNumber(n.chickens)} ekor</p>
+              {n.buyKg !== null ? (
+                <p className="text-[13px] font-semibold text-kriuk-700">
+                  Beli {formatNumber(n.buyKg, 0, 1)} kg · {formatNumber(n.ingredient.piecesPerKg ?? 0)} potong/kg
+                </p>
               ) : null}
             </>
           }
@@ -53,13 +58,11 @@ export function NeedsView({
   tomorrow,
   fiveDays,
   bufferPct,
-  piecesPerChicken,
   tomorrowLabel,
 }: {
   tomorrow: IngredientNeed[];
   fiveDays: IngredientNeed[];
   bufferPct: number;
-  piecesPerChicken: number;
   tomorrowLabel: string;
 }) {
   const [range, setRange] = useState<Range>("besok");
@@ -78,7 +81,7 @@ export function NeedsView({
       />
       <GroupedList
         title={range === "besok" ? tomorrowLabel : "Total 5 hari ke depan"}
-        footer={`Dihitung dari prediksi porsi per menu × resep, ditambah cadangan ${bufferPct}%. Ayam dibulatkan ke atas menjadi ekor (1 ekor = ${piecesPerChicken} potong).`}
+        footer={`Dihitung dari prediksi porsi per kategori × resep, ditambah cadangan ${bufferPct}%. Bahan yang dibeli per kg dikurangi sisa di freezer, lalu dibagi potong per kg bahan itu dan dibulatkan ke atas per 0,5 kg.`}
       >
         <NeedRows needs={needs} bufferPct={bufferPct} />
       </GroupedList>

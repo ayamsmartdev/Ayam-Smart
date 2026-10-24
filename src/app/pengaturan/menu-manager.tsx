@@ -21,7 +21,8 @@ import { cn } from "@/lib/cn";
 import { formatNumber, formatQuantity } from "@/lib/format";
 import { RecipeEditor, type RecipeIngredient } from "./recipe-editor";
 
-type Menu = { id: string; name: string; price: number | null; isActive: boolean };
+/** Kategori menu (tabel `menus`, D-26). */
+type Menu = { id: string; name: string; description: string | null; price: number | null; isActive: boolean };
 
 type DialogState =
   | { mode: "closed" }
@@ -40,9 +41,10 @@ function MenuForm({
 }: {
   initial?: Menu;
   pending: boolean;
-  onSubmit: (value: { name: string; price: string }) => void;
+  onSubmit: (value: { name: string; description: string; price: string }) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : "");
 
   return (
@@ -50,11 +52,11 @@ function MenuForm({
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ name, price });
+        onSubmit({ name, description, price });
       }}
     >
       <label className="block">
-        <span className="mb-1.5 block text-[14px] font-medium text-ink-soft">Nama menu</span>
+        <span className="mb-1.5 block text-[14px] font-medium text-ink-soft">Nama kategori</span>
         <input
           className={inputClass}
           value={name}
@@ -62,8 +64,20 @@ function MenuForm({
           maxLength={80}
           required
           autoFocus
-          placeholder="Contoh: Ayam geprek + nasi"
+          placeholder="Contoh: Geprek bakar"
         />
+      </label>
+      <label className="block">
+        <span className="mb-1.5 block text-[14px] font-medium text-ink-soft">Isi varian (opsional)</span>
+        <textarea
+          className={cn(inputClass, "min-h-20 resize-none py-2.5 leading-snug")}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={200}
+          rows={2}
+          placeholder="Contoh: sambel bawang, sambal ijo, mayosam, keju"
+        />
+        <span className="mt-1 block text-[13px] text-ink-soft">Tampil di Rekap sebagai pengingat menu apa saja yang masuk.</span>
       </label>
       <label className="block">
         <span className="mb-1.5 block text-[14px] font-medium text-ink-soft">Harga (opsional)</span>
@@ -81,7 +95,7 @@ function MenuForm({
         </div>
       </label>
       <Button type="submit" className="w-full" disabled={pending || name.trim().length === 0}>
-        {pending ? "Menyimpan…" : "Simpan menu"}
+        {pending ? "Menyimpan…" : "Simpan kategori"}
       </Button>
     </form>
   );
@@ -145,12 +159,12 @@ export function MenuManager({
       <div className="mb-2 flex items-end justify-between gap-3 px-1">
         <div>
           <h2 id="menu-list-title" className="text-[15px] font-semibold text-ink-soft">
-            Menu di Rekap harian
+            Kategori menu di Rekap harian
           </h2>
           <p className="text-[13px] text-ink-soft">
             {menus.length === 0
-              ? "Belum ada menu."
-              : `${formatNumber(activeCount)} aktif dari ${formatNumber(menus.length)} menu. Urutan di sini = urutan di Rekap.`}
+              ? "Belum ada kategori."
+              : `${formatNumber(activeCount)} aktif dari ${formatNumber(menus.length)} kategori. Urutan di sini = urutan di Rekap.`}
           </p>
         </div>
         <Button onClick={() => openDialog({ mode: "create" })} className="shrink-0 px-4">
@@ -161,9 +175,9 @@ export function MenuManager({
 
       {menus.length === 0 ? (
         <div className="glass rounded-panel px-5 py-8 text-center">
-          <p className="text-[16px] font-semibold">Mulai dari menu yang paling sering dijual</p>
+          <p className="text-[16px] font-semibold">Mulai dari kategori yang paling laris</p>
           <p className="mx-auto mt-1 max-w-sm text-[14px] text-ink-soft">
-            Setiap menu muncul sebagai satu baris di Rekap harian. Harga boleh diisi belakangan.
+            Setiap kategori muncul sebagai satu baris di Rekap harian, misalnya Geprek bakar atau Lele. Harga boleh dikosongkan.
           </p>
         </div>
       ) : (
@@ -178,8 +192,11 @@ export function MenuManager({
                 <span className={cn("block truncate text-[16px] font-medium", !m.isActive && "text-ink-soft")}>
                   {m.name}
                 </span>
+                {m.description ? (
+                  <span className="mt-0.5 block truncate text-[13px] text-ink-soft">{m.description}</span>
+                ) : null}
                 <span className="mt-0.5 flex items-center gap-2 text-[13px] text-ink-soft">
-                  {m.price != null ? `Rp ${formatNumber(m.price)}` : "Harga belum diisi"}
+                  {m.price != null ? `Rp ${formatNumber(m.price)}` : null}
                   {!m.isActive ? <Badge>Nonaktif</Badge> : null}
                 </span>
                 <RecipeSummary items={recipes[m.id] ?? []} ingredients={ingredients} />
@@ -207,7 +224,7 @@ export function MenuManager({
         </ul>
       )}
       {menus.length > 0 ? (
-        <p className="mt-2 px-1 text-[13px] text-ink-soft">Ketuk nama menu untuk mengubah, menonaktifkan, atau menghapus.</p>
+        <p className="mt-2 px-1 text-[13px] text-ink-soft">Ketuk nama kategori untuk mengubah, mengatur resep, menonaktifkan, atau menghapus.</p>
       ) : null}
 
       {needPin ? (
@@ -219,7 +236,7 @@ export function MenuManager({
         </Link>
       ) : null}
 
-      <ConfirmDialog open={dialog.mode === "create"} onClose={close} title="Tambah menu">
+      <ConfirmDialog open={dialog.mode === "create"} onClose={close} title="Tambah kategori">
         {dialog.mode === "create" ? (
           <MenuForm pending={pending} onSubmit={(v) => run(() => createMenu(v))} />
         ) : null}
@@ -229,7 +246,7 @@ export function MenuManager({
         </Button>
       </ConfirmDialog>
 
-      <ConfirmDialog open={dialog.mode === "edit"} onClose={close} title="Ubah menu">
+      <ConfirmDialog open={dialog.mode === "edit"} onClose={close} title="Ubah kategori">
         {dialog.mode === "edit" ? (
           <>
             <MenuForm
@@ -260,7 +277,7 @@ export function MenuManager({
               disabled={pending}
               onClick={() => openDialog({ mode: "delete", menu: dialog.menu })}
             >
-              Hapus menu
+              Hapus kategori
             </Button>
           </>
         ) : null}
@@ -272,10 +289,10 @@ export function MenuManager({
       <ConfirmDialog
         open={dialog.mode === "delete"}
         onClose={close}
-        title="Hapus menu?"
+        title="Hapus kategori?"
         description={
           dialog.mode === "delete"
-            ? `"${dialog.menu.name}" akan dihapus permanen. Menu yang sudah punya riwayat rekap tidak bisa dihapus; nonaktifkan saja.`
+            ? `"${dialog.menu.name}" akan dihapus permanen. Kategori yang sudah punya riwayat rekap tidak bisa dihapus; nonaktifkan saja.`
             : undefined
         }
       >

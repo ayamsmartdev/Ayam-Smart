@@ -8,7 +8,8 @@ import { addDays, dayOfMonth, dayOfWeek } from "./date";
 export type Unit = "potong" | "porsi" | "gram" | "gelas";
 
 export type Menu = { id: string; name: string };
-export type Ingredient = { id: string; name: string; unit: Unit; isChicken: boolean };
+/** `piecesPerKg` hanya untuk bahan yang dibeli per kg (D-28). */
+export type Ingredient = { id: string; name: string; unit: Unit; isChicken: boolean; piecesPerKg?: number | null };
 export type RecipeItem = { menuId: string; ingredientId: string; qtyPerPortion: number };
 export type SalesRow = { date: string; menuId: string; qty: number };
 export type WasteReason = "tidak_laku" | "rusak" | "kedaluwarsa" | "lainnya";
@@ -30,7 +31,7 @@ export const DEMO_MENUS: Menu[] = [
 ];
 
 export const DEMO_INGREDIENTS: Ingredient[] = [
-  { id: "ayam", name: "Ayam", unit: "potong", isChicken: true },
+  { id: "ayam", name: "Ayam dada", unit: "potong", isChicken: true, piecesPerKg: 9 },
   { id: "nasi", name: "Nasi", unit: "porsi", isChicken: false },
   { id: "tepung", name: "Tepung bumbu", unit: "gram", isChicken: false },
   { id: "cabai", name: "Cabai rawit", unit: "gram", isChicken: false },
@@ -51,7 +52,7 @@ export const DEMO_RECIPES: RecipeItem[] = [
   { menuId: "paket-esteh", ingredientId: "teh", qtyPerPortion: 1 },
 ];
 
-export const DEMO_SETTINGS = { bufferPct: 10, piecesPerChicken: 8 } as const;
+export const DEMO_SETTINGS = { bufferPct: 10 } as const;
 
 export const WASTE_REASON_LABEL: Record<WasteReason, string> = {
   tidak_laku: "Tidak laku",

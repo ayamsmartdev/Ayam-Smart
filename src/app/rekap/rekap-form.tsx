@@ -14,7 +14,7 @@ import { cn } from "@/lib/cn";
 import { addDays, formatDayLong, relativeDayLabel } from "@/lib/date";
 import { formatNumber } from "@/lib/format";
 
-type Menu = { id: string; name: string };
+type Menu = { id: string; name: string; description: string | null };
 type Initial = { qtyByMenu: Record<string, number>; closed: boolean; savedAt: string | null };
 
 const MAX_DAYS_BACK = 30;
@@ -174,12 +174,17 @@ export function RekapForm({
 
       <section aria-labelledby="menu-heading" className={cn(closed && "pointer-events-none opacity-40")}>
         <h2 id="menu-heading" className="mb-2 px-1 text-[15px] font-semibold text-ink-soft">
-          Porsi terjual per menu
+          Porsi terjual per kategori
         </h2>
         <ul className="glass divide-y divide-line/70 rounded-panel">
           {menus.map((m) => (
             <li key={m.id} className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3">
-              <span className="min-w-0 text-[16px] font-medium leading-snug">{m.name}</span>
+              <span className="min-w-0">
+                <span className="block text-[16px] font-medium leading-snug">{m.name}</span>
+                {m.description ? (
+                  <span className="mt-0.5 block text-[13px] leading-snug text-ink-soft">{m.description}</span>
+                ) : null}
+              </span>
               <Stepper
                 label={m.name}
                 value={qty[m.id] ?? 0}

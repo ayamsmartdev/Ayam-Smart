@@ -41,10 +41,10 @@ export default async function PengaturanPage() {
 
   return (
     <>
-      <PageHeader title="Menu & resep" subtitle="Menu yang direkap setiap hari dan bahan bakunya" />
+      <PageHeader title="Menu & resep" subtitle="Kategori menu yang direkap setiap hari dan bahan bakunya" />
       <div className="space-y-8">
         <MenuManager
-          menus={menus.map(({ id, name, price, isActive }) => ({ id, name, price, isActive }))}
+          menus={menus.map(({ id, name, description, price, isActive }) => ({ id, name, description, price, isActive }))}
           ingredients={ingredients.map(({ id, name, unit, isActive }) => ({ id, name, unit, isActive }))}
           recipes={recipes}
         />

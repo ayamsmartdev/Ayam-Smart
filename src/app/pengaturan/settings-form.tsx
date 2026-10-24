@@ -12,14 +12,14 @@ import { Stepper } from "@/components/ui/stepper";
 import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 
-type Settings = { bufferPct: number; piecesPerChicken: number };
+type Settings = { bufferPct: number };
 
 export function SettingsForm({ initial }: { initial: Settings }) {
   const router = useRouter();
   const { run, pending, toast, clearToast, needPin } = useActionRunner();
   const [values, setValues] = useState(initial);
   const [saved, setSaved] = useState(initial);
-  const dirty = values.bufferPct !== saved.bufferPct || values.piecesPerChicken !== saved.piecesPerChicken;
+  const dirty = values.bufferPct !== saved.bufferPct;
   const { pendingHref, clearPending } = useLeaveGuard(dirty);
 
   const save = (after?: () => void) =>
@@ -44,7 +44,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
       <h2 id="settings-title" className="mb-2 px-1 text-[15px] font-semibold text-ink-soft">
         Setelan perhitungan
       </h2>
-      <div className="glass divide-y divide-line/70 rounded-panel">
+      <div className="glass rounded-panel">
         <div className={row}>
           <span className="min-w-0">
             <span className="block text-[16px] font-medium">Cadangan stok</span>
@@ -60,19 +60,6 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             />
             <span className="text-[15px] text-ink-soft">%</span>
           </span>
-        </div>
-        <div className={row}>
-          <span className="min-w-0">
-            <span className="block text-[16px] font-medium">Potong per ekor</span>
-            <span className="block text-[13px] text-ink-soft">Mengubah potong jadi ekor</span>
-          </span>
-          <Stepper
-            label="Potong per ekor ayam"
-            value={values.piecesPerChicken}
-            onChange={(v) => setValues((s) => ({ ...s, piecesPerChicken: v }))}
-            min={1}
-            max={20}
-          />
         </div>
       </div>
 
@@ -105,7 +92,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         open={pendingHref !== null}
         onClose={clearPending}
         title="Setelan belum disimpan"
-        description="Perubahan cadangan stok atau potong per ekor akan hilang kalau kamu pindah halaman sekarang."
+        description="Perubahan cadangan stok akan hilang kalau kamu pindah halaman sekarang."
       >
         <Button onClick={() => pendingHref && save(() => leave(pendingHref))} disabled={pending}>
           {pending ? "Menyimpan…" : "Simpan lalu pindah"}

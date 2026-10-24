@@ -236,12 +236,14 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 - **Sudah data nyata (dataset `live`, Supabase region Singapura):**
   - `/rekap` — rekap harian semua menu aktif (termasuk 0), mode warung tutup, pilih tanggal s.d. 30 hari lalu.
   - `/pengaturan` — kelola menu (tambah/ubah/urutkan/nonaktifkan/hapus), bahan baku (satuan terkunci bila dipakai),
-    resep per porsi, setelan `buffer_pct` & `pieces_per_chicken`.
+    resep per porsi, setelan `buffer_pct`. Potong per kg disimpan per bahan ayam (D-28).
   - PIN (D-21): `/pin`, cookie 30 hari, rate limit, proxy + cek di setiap action. `/status` untuk cek koneksi DB.
 - **Masih simulasi** (`src/lib/demo-data.ts` + forecast TypeScript `src/lib/preview-forecast.ts`, berlabel Simulasi):
   Beranda, Prediksi, Bahan, Waste (simpan waste belum ke DB), Import (baru unduh template).
 - **Python forecast:** spike T-10 lolos (D-03 berlaku, D-25). `api/forecast.py` masih versi spike (laporan versi & waktu),
   belum dipanggil Next.js. Ridge numpy di `forecasting/models.py` + 11 tes pembanding scikit-learn.
+- **Sedang berjalan:** rekap per kategori + stok ayam dada, ayam per kg (D-26, D-27; tahap K1–K5 di `docs/TASKS.md`).
+  Tabel `menus` sekarang berisi **kategori menu**. Data asli klien (menu, harga, profil) tidak boleh masuk repo.
 - **Belum ada:** forecast sungguhan (T-16 → T-17 → T-18), simpan food waste, mode demo/live, import CSV, seed data simulasi di DB.
 - **Database:** skema di `supabase/migrations/0001_init.sql` (10 tabel, RLS tanpa policy). Isi tabel live = data asli
   klien → **jangan pernah dimasukkan ke repo** (repo publik).

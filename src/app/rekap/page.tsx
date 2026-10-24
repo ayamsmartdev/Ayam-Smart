@@ -39,9 +39,9 @@ export default async function RekapPage({ searchParams }: PageProps<"/rekap">) {
       <PageHeader title="Rekap harian" subtitle="Isi jumlah porsi terjual di akhir hari" />
       {menus.length === 0 ? (
         <Panel>
-          <p className="text-[16px] font-semibold">Belum ada menu</p>
+          <p className="text-[16px] font-semibold">Belum ada kategori menu</p>
           <p className="mt-1 max-w-prose text-[15px] text-ink-soft">
-            Tambahkan menu warung dulu di Menu &amp; resep, lalu kembali ke sini untuk mengisi rekap.
+            Tambahkan kategori menu warung dulu di Menu &amp; resep, lalu kembali ke sini untuk mengisi rekap.
           </p>
           <LinkButton href="/pengaturan" className="mt-4">
             Buka Menu &amp; resep

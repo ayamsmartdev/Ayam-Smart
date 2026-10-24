@@ -22,7 +22,7 @@ export default function LainnyaPage() {
             href="/pengaturan"
             leading={<span className={iconBox}><SlidersIcon className="size-5" /></span>}
             title="Menu & resep"
-            subtitle="Daftar menu, bahan per porsi, cadangan stok"
+            subtitle="Kategori menu, resep per porsi, cadangan stok"
           />
           <ListRow
             href="/import"

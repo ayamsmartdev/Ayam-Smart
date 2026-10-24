@@ -12,7 +12,6 @@ export default function BahanPage() {
         tomorrow={s.tomorrowNeeds}
         fiveDays={s.fiveDayNeeds}
         bufferPct={s.settings.bufferPct}
-        piecesPerChicken={s.settings.piecesPerChicken}
         tomorrowLabel={`Besok, ${formatDayLong(s.tomorrow)}`}
       />
     </>

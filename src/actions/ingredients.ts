@@ -23,9 +23,11 @@ export async function createIngredient(input: unknown): Promise<ActionResult> {
   if (!(await isPinVerified())) return NEED_PIN;
   const parsed = cleanIngredientInput(input);
   if (!parsed.ok) return parsed;
-  const { name, unit, isChicken } = parsed.value;
+  const { name, unit, isChicken, piecesPerKg } = parsed.value;
 
-  const { error } = await getSupabase().from("ingredients").insert({ name, unit, is_chicken: isChicken });
+  const { error } = await getSupabase()
+    .from("ingredients")
+    .insert({ name, unit, is_chicken: isChicken, pieces_per_kg: piecesPerKg });
   if (pgCode(error) === "23505") return { ok: false, error: `Bahan "${name}" sudah ada.` };
   if (error) return DB_DOWN;
   return done(`Bahan "${name}" ditambahkan.`);
@@ -36,7 +38,7 @@ export async function updateIngredient(id: unknown, input: unknown): Promise<Act
   if (typeof id !== "string" || id.length === 0) return { ok: false, error: "Bahan tidak dikenal." };
   const parsed = cleanIngredientInput(input);
   if (!parsed.ok) return parsed;
-  const { name, unit, isChicken } = parsed.value;
+  const { name, unit, isChicken, piecesPerKg } = parsed.value;
   const supabase = getSupabase();
 
   // Satuan dikunci jika sudah dipakai: takaran lama (mis. 25 gram) akan salah arti setelah jadi kg.
@@ -57,7 +59,10 @@ export async function updateIngredient(id: unknown, input: unknown): Promise<Act
     }
   }
 
-  const { error } = await supabase.from("ingredients").update({ name, unit, is_chicken: isChicken }).eq("id", id);
+  const { error } = await supabase
+    .from("ingredients")
+    .update({ name, unit, is_chicken: isChicken, pieces_per_kg: piecesPerKg })
+    .eq("id", id);
   if (pgCode(error) === "23505") return { ok: false, error: `Bahan "${name}" sudah ada.` };
   if (error) return DB_DOWN;
   return done("Perubahan bahan disimpan.");
@@ -79,7 +84,7 @@ export async function deleteIngredient(id: unknown): Promise<ActionResult> {
   if (pgCode(error) === "23503") {
     return {
       ok: false,
-      error: "Bahan ini dipakai di resep atau catatan waste, jadi tidak bisa dihapus. Nonaktifkan saja.",
+      error: "Bahan ini dipakai di resep, catatan waste, atau catatan stok, jadi tidak bisa dihapus. Nonaktifkan saja.",
     };
   }
   if (error) return DB_DOWN;

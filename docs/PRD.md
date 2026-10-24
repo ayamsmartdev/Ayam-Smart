@@ -13,7 +13,7 @@ digital. Persiapan stok ayam dan bahan baku dilakukan berdasarkan perkiraan, seh
 kelebihan stok (menjadi food waste) atau kekurangan stok (kehilangan penjualan).
 
 AYAMSMART membantu pemilik usaha:
-1. Mencatat penjualan harian per menu dengan cepat.
+1. Mencatat penjualan harian per **kategori menu** dan stok ayam dada dengan cepat.
 2. Melihat tren penjualan.
 3. Memperkirakan permintaan 5 hari ke depan.
 4. Mengetahui kebutuhan bahan baku yang perlu disiapkan.
@@ -27,7 +27,7 @@ Aplikasi kasir milik klien sedang dibuat terpisah. AYAMSMART bukan aplikasi kasi
 |---|---|---|
 | G1 | Pencatatan harian cepat | Rekap satu hari selesai < 1 menit di HP |
 | G2 | Forecast yang jujur | Prediksi 5 hari tampil beserta tingkat error dan model yang dipakai |
-| G3 | Rekomendasi yang bisa langsung dipakai | Kebutuhan bahan tampil dalam satuan belanja (misalnya ekor ayam) |
+| G3 | Rekomendasi yang bisa langsung dipakai | Kebutuhan bahan tampil dalam satuan belanja: **kg ayam dada** yang perlu dibeli |
 | G4 | Bukti dampak | Food waste tercatat dan tampil sebagai tren |
 | G5 | Siap presentasi 4 November 2026 | Alur lengkap bisa didemokan < 3 menit di HP tanpa error |
 
@@ -44,18 +44,24 @@ Aplikasi kasir milik klien sedang dibuat terpisah. AYAMSMART bukan aplikasi kasi
 Prioritas: **P1** wajib untuk presentasi, **P2** diusahakan untuk presentasi.
 
 ### F1 — Pengaturan Menu, Bahan, dan Resep (P1)
-Master data untuk menu (nama, harga opsional, aktif/nonaktif), bahan baku (nama, satuan), dan
-resep (jumlah bahan per porsi per menu), buffer stok (%), dan jumlah potong per ekor ayam.
+Master data untuk **kategori menu** (nama, isi varian opsional, harga opsional, aktif/nonaktif), bahan
+baku (nama, satuan; ayam yang dibeli per kg punya **potong per kg** sendiri, mis. dada 9), resep (jumlah
+bahan per porsi per kategori), dan buffer stok (%) (D-26–D-28). Klien punya 41 menu yang dikelompokkan
+menjadi ±12 kategori.
 
 **Kriteria penerimaan**
-- Bisa tambah, ubah, dan nonaktifkan menu dan bahan.
-- Menu "ayam saja" dan "ayam + nasi" bisa punya resep berbeda.
-- Menu nonaktif tidak muncul di form input, tetapi data historisnya tetap ada.
+- Bisa tambah, ubah, dan nonaktifkan kategori dan bahan.
+- Kategori "Crispy steak single" (1 potong) dan "Crispy steak double" (2 potong) bisa punya takaran berbeda.
+- Isi varian (mis. "sambel bawang, sambal ijo, mayosam") tampil di rekap sebagai pengingat.
+- Kategori nonaktif tidak muncul di form input, tetapi data historisnya tetap ada.
 
 ### F2 — Input Rekap Penjualan Harian (P1)
-Form rekap per tanggal: daftar menu aktif dengan tombol +/- dan input angka.
+Form rekap per tanggal: daftar **kategori menu** aktif dengan tombol +/- dan input angka, ditambah
+**stok ayam per bahan yang dibeli per kg** (saat ini hanya dada): potong yang disiapkan hari itu (segar +
+diambil dari freezer) dan potong sisa yang masuk freezer saat tutup (D-26, D-28). Klien tidak punya catatan penjualan; per kategori lebih realistis diingat.
 
 **Kriteria penerimaan**
+- Stok ayam boleh dikosongkan; jika diisi, sisa tidak boleh lebih dari yang disiapkan.
 - Default tanggal = hari ini (WIB). Bisa memilih tanggal lain untuk mengisi hari yang terlewat.
 - Mengisi ulang tanggal yang sama memperbarui data, bukan menduplikasi.
 - Setelah disimpan, forecast dihitung ulang otomatis. Jika forecast gagal, data tetap tersimpan
@@ -66,7 +72,7 @@ Form rekap per tanggal: daftar menu aktif dengan tombol +/- dan input angka.
 Upload data penjualan historis dengan template.
 
 **Kriteria penerimaan**
-- Template bisa diunduh. Kolom: `tanggal` (YYYY-MM-DD), `menu`, `jumlah`.
+- Template bisa diunduh. Kolom: `tanggal` (YYYY-MM-DD), `menu` (= nama kategori di Menu & resep), `jumlah`.
 - Validasi sebelum simpan: format tanggal, angka negatif, menu tidak dikenal, duplikat.
   Baris bermasalah ditampilkan beserta alasannya.
 - Pratinjau sebelum konfirmasi simpan.
@@ -75,12 +81,13 @@ Upload data penjualan historis dengan template.
 **Kriteria penerimaan**
 - Ringkasan: total porsi 7 hari terakhir, rata-rata per hari, hari terlaris, tingkat food waste.
 - Grafik tren penjualan historis dan prediksi 5 hari dalam satu grafik, dengan pembeda visual yang jelas.
-- Filter: semua menu atau per menu; rentang 14 / 30 / 90 hari.
+- Filter: semua kategori atau per kategori; rentang 14 / 30 / 90 hari.
+- Stok ayam: potong terpakai dan sisa masuk freezer per hari (indikator sukses klien: "stok ayam").
 - Kondisi tanpa data menampilkan arahan, bukan grafik kosong.
 
 ### F5 — Forecast 5 Hari (P1)
 **Kriteria penerimaan**
-- Prediksi per menu untuk 5 hari ke depan, dengan rentang bawah–atas jika tersedia.
+- Prediksi per kategori menu untuk 5 hari ke depan, dengan rentang bawah–atas jika tersedia.
 - Menampilkan model terpilih, jumlah hari data, dan error rata-rata hasil backtest.
 - Data terlalu sedikit → memakai baseline dan menampilkan peringatan.
 - Tombol "Hitung ulang".
@@ -88,7 +95,7 @@ Upload data penjualan historis dengan template.
 ### F6 — Rekomendasi Bahan Baku (P1)
 **Kriteria penerimaan**
 - Kebutuhan bahan untuk besok dan 5 hari ke depan, sudah termasuk buffer.
-- Ayam ditampilkan dalam potong dan ekor.
+- Ayam ditampilkan dalam potong dan **kg yang perlu dibeli**: dikurangi sisa di freezer, dibulatkan ke atas per 0,5 kg (D-27).
 - Menampilkan asal perhitungan (prediksi × resep + buffer) agar bisa dijelaskan.
 
 ### F7 — Food Waste (P1)
@@ -151,10 +158,10 @@ Bisa diangkat ke sprint jika disepakati bersama klien:
 
 | ID | Pertanyaan | Untuk | Status |
 |---|---|---|---|
-| Q-01 | Daftar menu dan harga; menu mana yang memakai ayam dan berapa potong | Klien | Terbuka |
-| Q-02 | Resep/rasio bahan per porsi (ayam, nasi, sambal, tepung, minyak, sebisanya) | Klien | Terbuka |
-| Q-03 | Ayam dibeli per ekor atau per kg; 1 ekor dipotong jadi berapa potong | Klien | Terbuka |
-| Q-04 | Estimasi pemilik: rata-rata porsi hari biasa vs akhir pekan, hari paling ramai/sepi, hari tutup (untuk kalibrasi simulasi) | Klien | Terbuka |
+| Q-01 | Daftar menu dan harga; menu mana yang memakai ayam dan berapa potong | Klien | Terjawab (24 Okt): 41 menu, 11 kelompok → direkap 12 kategori (D-26) |
+| Q-02 | Resep/rasio bahan per porsi (ayam, nasi, sambal, tepung, minyak, sebisanya) | Klien | Sebagian: 1 potong dada per porsi menu ayam, 2 untuk steak double. Bahan lain belum |
+| Q-03 | Ayam dibeli per ekor atau per kg; 1 ekor dipotong jadi berapa potong | Klien | Terjawab (24 Okt): beli dada saja per kg di pasar, harian; 1 kg = 9–10 potong (D-27) |
+| Q-04 | Estimasi pemilik: rata-rata porsi hari biasa vs akhir pekan, hari paling ramai/sepi, hari tutup (untuk kalibrasi simulasi) | Klien | Sebagian: 40–50 porsi ayam/hari; ramai awal bulan, tanggal tua standar, promo online berpengaruh; geprek bakar 60–70%. Pola mingguan & hari tutup belum |
 | Q-05 | Persetujuan PIN; dashboard boleh dilihat tanpa PIN atau ikut dilindungi | Klien | Terbuka |
 | Q-06 | Siapa yang menginput rekap harian, dan kapan | Klien | Terbuka |
 | Q-07 | Logo dan kode warna HEX (sementara pakai palet usulan) | Klien | Terbuka |
@@ -162,3 +169,8 @@ Bisa diangkat ke sprint jika disepakati bersama klien:
 | Q-09 | Buffer stok yang diinginkan (default sementara 10%) | Klien | Terbuka |
 | Q-10 | Info kebijakan penggunaan komersial Vercel Hobby sudah disampaikan; keputusan plan | Klien | Terbuka |
 | Q-11 | Gmail AYAMSMART dibuat | Klien | Selesai (23 Okt) |
+| Q-12 | Kulit crispy: berapa kulit per porsi, dan apakah kulit dihitung sebagai stok | Klien | Terbuka |
+| Q-13 | Bisa ekspor riwayat pesanan dari Shopee/Grab/Gojek (data asli untuk melihat pola)? | Klien | Terbuka |
+
+> Data asli dari klien (profil usaha, daftar menu & harga) **tidak disimpan di repo** (repo publik).
+> Data dimasukkan lewat aplikasi atau SQL sekali pakai di Supabase.

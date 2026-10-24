@@ -63,9 +63,10 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 │  ├─ backtest.py                   # rolling-origin backtest + WAPE + interval
 │  └─ run.py                        # orkestrasi per menu
 ├─ tests/
-│  └─ test_models.py                # pytest: Ridge identik dengan scikit-learn ✅ (dev only)
+│  ├─ test_models.py                # pytest: Ridge identik dengan scikit-learn ✅ (dev only)
+│  └─ test_demo_data.py             # pytest: generator data simulasi ✅
 ├─ scripts/
-│  └─ generate_demo_data.py         # generator data simulasi (seed tetap)
+│  └─ generate_demo_data.py         # generator data simulasi dataset 'demo' (seed tetap) → scripts/out/demo_data.sql (diabaikan Git) ✅
 ├─ supabase/
 │  └─ migrations/                   # 0001_init.sql, dst. Dijalankan berurutan
 └─ src/

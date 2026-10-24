@@ -59,7 +59,7 @@
 > - K5 SQL sekali pakai: "Ayam" → "Ayam dada", 12 kategori + isi varian + resep potong dada (di luar repo) + panduan PDF v2 — ✅ selesai, dijalankan di Supabase
 > - K6a (D-29) Migrasi `0004_belanja_sisa.sql`; kartu stok: belanja kg + potong opsional (simpan kapan saja) + sisa saat tutup; tutup tidak menghapus stok — ✅ file siap
 > - K6b Selisih (tersedia → sisa seharusnya → selisih) + rata-rata potong/kg 14 hari + label "perkiraan" di bahan; logika murni `src/lib/stock.ts` — ✅ file siap
-> K6a + K6b dites bersamaan oleh Fillian. Panduan PDF v3 (alur harian) menyusul setelah tes.
+> K6a + K6b — ✅ selesai (dites Fillian di production, di-push `ad091b6`). Panduan v3 tidak dibuat (keputusan Fillian).
 
 - [x] T-10 (F) **Spike Python di Vercel (hari pertama, go/no-go D-03):** fungsi `api/forecast.py` minimal dengan numpy (Ridge numpy, D-25), deploy berdampingan dengan Next.js, ukur cold start, cek tidak bentrok dengan rute Next.js. Hasil dicatat di ARCHITECTURE §11
   - **10a** ✅ file siap: `api/forecast.py` (BaseHTTPRequestHandler, tanpa FastAPI; wajib `X-Forecast-Secret`; laporkan versi, waktu import, waktu fit), `forecasting/models.py` (Ridge numpy setara scikit-learn StandardScaler+Ridge), `tests/test_models.py` (11 tes, dibandingkan dengan scikit-learn), `requirements.txt` (numpy saja), `requirements-dev.txt`, `pytest.ini`, `vercel.json` (`excludeFiles`). Diuji Fillian di laptop & Vercel
@@ -70,7 +70,9 @@
 - [x] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, `src/proxy.ts` (Next 16, pengganti middleware), rate limit — selesai, teruji di laptop & Vercel
 - [x] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken` — teruji dengan Supabase asli
 - [x] T-15 (F) Input rekap harian (stepper +/-, pilih tanggal via `?tanggal=`, tandai tutup, upsert ke `live`)
-- [ ] T-16 (F) `scripts/generate_demo_data.py`: data simulasi 120 hari dengan pola mingguan, gajian, dan noise; seed tetap; parameter siap dikalibrasi ke Q-04
+- [~] T-16 (F) `scripts/generate_demo_data.py`: data simulasi 120 hari untuk 12 kategori + stok ayam dada (dataset `demo`); seed tetap; parameter di satu tempat (`PARAMS`, sumber "klien" vs "asumsi")
+  - **16a** ✅ file siap: generator + SQL idempoten (pengaman kategori, tidak menyentuh `live`), 10 tes pytest, diuji di PGlite. Pola: 45 porsi ayam/hari, awal bulan ×1,2 / ×1,1, promo 8%, geprek bakar 65%, tanpa pola mingguan (klien tidak menyebut), stok belanja 5–6 kg & 8–10 potong/kg, ayam bisa habis
+  - **16b** jalankan `scripts/out/demo_data.sql` di Supabase + cek; kalibrasi ulang setelah ±7 hari rekap asli (T-33)
 - [ ] T-17 (F) Package `forecasting/` v1: `ma7`, `snaive`, `ridge`, backtest WAPE, interval, pemilihan model + `pytest`
 - [ ] T-18 (F) Integrasi: simpan rekap → panggil forecast → simpan `forecast_runs` & `forecasts`; tombol "Hitung ulang"; penanganan gagal
 - [ ] T-19 (F) Dashboard v1: kartu ringkasan + grafik historis & prediksi
@@ -141,3 +143,4 @@
 - 2026-10-24 — Data klien masuk (CSV + Excel, tidak disimpan di repo): 41 menu/11 kelompok, 40–50 porsi ayam/hari, beli dada per kg (9–10 potong/kg), sisa ke freezer, ramai awal bulan, favorit geprek bakar 60–70%, tidak ada catatan penjualan. Diputuskan Fillian: rekap per kategori + stok ayam (D-26), ayam per kg (D-27). K1–K3 dikerjakan berurutan atas permintaan Fillian.
 - 2026-10-24 — Setup komputer rumah (Node 24.22.1, Git 2.56, Python 3.12.10, `.env.local` baru; secret lokal dibuat ulang). Migrasi 0002 dijalankan di Supabase, tes Setelan & Bahan K1–K3 lolos. Ditambah K2b: potong per kg & stok per bahan (D-28) agar siap jika ada paha/sayap.
 - 2026-10-24 — K4 + K5 lolos uji Fillian (12 kategori live, PIN disetujui klien). Alur harian dibahas: omzet & harga ayam di luar scope, lembar turus di luar scope. Diputuskan D-29: stok = belanja (kg + potong opsional) + sisa saat tutup → selisih; ukuran ayam berubah harian sehingga potong/kg jadi perkiraan + rata-rata 14 hari. K6a + K6b dikerjakan.
+- 2026-10-24 — K6 lolos uji production. T-16a: generator data simulasi + 10 tes; bug alias SQL `left` (kata kunci) ketahuan saat uji PGlite dan diperbaiki. Simulasi dengan kebiasaan beli 5–6 kg: ayam habis ±16% hari (awal bulan/promo) — temuan simulasi, bukan fakta warung.

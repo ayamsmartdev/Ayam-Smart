@@ -36,6 +36,8 @@ yarn-error.log*
 !.env.example
 .venv/
 __pycache__/
+# Hasil generator data simulasi (dibuat ulang dari scripts/generate_demo_data.py)
+/scripts/out/
 
 # vercel
 .vercel

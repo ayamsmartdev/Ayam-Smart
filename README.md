@@ -44,7 +44,8 @@ Jalankan file migrasi di `supabase/migrations/` secara berurutan lewat SQL Edito
 # macOS/Linux: python3.12 -m venv .venv
 # Aktifkan: Windows Git Bash → source .venv/Scripts/activate | macOS/Linux → source .venv/bin/activate
 pip install -r requirements-dev.txt
-pytest                          # tes model (Ridge dibandingkan dengan scikit-learn)
+pytest                          # tes model (Ridge vs scikit-learn) + generator data simulasi
+python scripts/generate_demo_data.py   # SQL data simulasi → scripts/out/demo_data.sql
 python api/forecast.py          # fungsi lokal di http://localhost:8000/api/forecast (butuh env FORECAST_SECRET)
 ```
 

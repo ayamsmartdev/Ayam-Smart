@@ -70,10 +70,14 @@
 - [x] T-13 (F) PIN: halaman `/pin`, cookie bertanda tangan, `src/proxy.ts` (Next 16, pengganti middleware), rate limit — selesai, teruji di laptop & Vercel
 - [x] T-14 (F) Pengaturan: CRUD menu, bahan, resep, `buffer_pct`, `pieces_per_chicken` — teruji dengan Supabase asli
 - [x] T-15 (F) Input rekap harian (stepper +/-, pilih tanggal via `?tanggal=`, tandai tutup, upsert ke `live`)
-- [~] T-16 (F) `scripts/generate_demo_data.py`: data simulasi 120 hari untuk 12 kategori + stok ayam dada (dataset `demo`); seed tetap; parameter di satu tempat (`PARAMS`, sumber "klien" vs "asumsi")
+- [x] T-16 (F) `scripts/generate_demo_data.py`: data simulasi 120 hari untuk 12 kategori + stok ayam dada (dataset `demo`); seed tetap; parameter di satu tempat (`PARAMS`, sumber "klien" vs "asumsi")
   - **16a** ✅ file siap: generator + SQL idempoten (pengaman kategori, tidak menyentuh `live`), 10 tes pytest, diuji di PGlite. Pola: 45 porsi ayam/hari, awal bulan ×1,2 / ×1,1, promo 8%, geprek bakar 65%, tanpa pola mingguan (klien tidak menyebut), stok belanja 5–6 kg & 8–10 potong/kg, ayam bisa habis
-  - **16b** jalankan `scripts/out/demo_data.sql` di Supabase + cek; kalibrasi ulang setelah ±7 hari rekap asli (T-33)
-- [ ] T-17 (F) Package `forecasting/` v1: `ma7`, `snaive`, `ridge`, backtest WAPE, interval, pemilihan model + `pytest`
+  - **16b** ✅ `scripts/out/demo_data.sql` dijalankan di Supabase + dicek Fillian; kalibrasi ulang setelah ±7 hari rekap asli (T-33)
+- [~] T-17 (F) Package `forecasting/` v1: `ma7`, `snaive`, `ridge`, backtest WAPE, interval, pemilihan model + `pytest`
+  - **17a+17b+17c** ✅ file siap (satu sprint atas permintaan Fillian): `features.py` (awal bulan, rata-rata minggu lalu),
+    peramal di `models.py`, `backtest.py`, `run.py`, `contract.py`, `api/forecast.py` kontrak §6.1 (+ `censored_dates`),
+    `scripts/forecast_demo_request.py`, 78 tes pytest. D-30: hari stok habis tetap dipakai apa adanya (diuji 3 cara)
+  - **Sisa:** uji Fillian lokal (pytest + curl) dan di Vercel (curl + waktu), lalu push
 - [ ] T-18 (F) Integrasi: simpan rekap → panggil forecast → simpan `forecast_runs` & `forecasts`; tombol "Hitung ulang"; penanganan gagal
 - [ ] T-19 (F) Dashboard v1: kartu ringkasan + grafik historis & prediksi
 - [ ] T-1A (F+K) Demo Sprint 1 ke Julius; catat masukan di §Log dan backlog
@@ -144,3 +148,4 @@
 - 2026-10-24 — Setup komputer rumah (Node 24.22.1, Git 2.56, Python 3.12.10, `.env.local` baru; secret lokal dibuat ulang). Migrasi 0002 dijalankan di Supabase, tes Setelan & Bahan K1–K3 lolos. Ditambah K2b: potong per kg & stok per bahan (D-28) agar siap jika ada paha/sayap.
 - 2026-10-24 — K4 + K5 lolos uji Fillian (12 kategori live, PIN disetujui klien). Alur harian dibahas: omzet & harga ayam di luar scope, lembar turus di luar scope. Diputuskan D-29: stok = belanja (kg + potong opsional) + sisa saat tutup → selisih; ukuran ayam berubah harian sehingga potong/kg jadi perkiraan + rata-rata 14 hari. K6a + K6b dikerjakan.
 - 2026-10-24 — K6 lolos uji production. T-16a: generator data simulasi + 10 tes; bug alias SQL `left` (kata kunci) ketahuan saat uji PGlite dan diperbaiki. Simulasi dengan kebiasaan beli 5–6 kg: ayam habis ±16% hari (awal bulan/promo) — temuan simulasi, bukan fakta warung.
+- 2026-10-24 — T-16 selesai (16b dijalankan di Supabase). T-17a/b/c dikerjakan sekaligus: forecast v1 sesuai kontrak §6.1, 78 tes. Usulan awal "buang hari stok habis dari latihan" **dibatalkan** setelah diuji di simulasi (lebih buruk: hari habis = hari ramai); imputasi hanya membantu tipis → D-30 memakai data apa adanya + peringatan. Generator kini mencatat permintaan sebelum stok habis (khusus evaluasi, tidak masuk SQL).

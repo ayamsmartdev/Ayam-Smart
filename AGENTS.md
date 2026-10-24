@@ -231,7 +231,7 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 
 > Snapshot kondisi proyek SEKARANG. Update setiap akhir sesi. Harus tetap benar jika dibaca tanpa konteks chat.
 
-**Terakhir diupdate:** 23 Oktober 2026 (rangkaian "Rekap harian live" selesai, D-20)
+**Terakhir diupdate:** 24 Oktober 2026 (T-17 forecast v1 file siap, D-30)
 
 - **Sudah data nyata (dataset `live`, Supabase region Singapura):**
   - `/rekap` — rekap harian semua menu aktif (termasuk 0), mode warung tutup, pilih tanggal s.d. 30 hari lalu.
@@ -240,21 +240,23 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   - PIN (D-21): `/pin`, cookie 30 hari, rate limit, proxy + cek di setiap action. `/status` untuk cek koneksi DB.
 - **Masih simulasi** (`src/lib/demo-data.ts` + forecast TypeScript `src/lib/preview-forecast.ts`, berlabel Simulasi):
   Beranda, Prediksi, Bahan, Waste (simpan waste belum ke DB), Import (baru unduh template).
-- **Python forecast:** spike T-10 lolos (D-03 berlaku, D-25). `api/forecast.py` masih versi spike (laporan versi & waktu),
-  belum dipanggil Next.js. Ridge numpy di `forecasting/models.py` + 11 tes pembanding scikit-learn.
+- **Python forecast:** `api/forecast.py` sudah kontrak asli §6.1 (T-17, D-30): ma7 / snaive / ridge, backtest WAPE,
+  rentang 10–90%, peringatan; `GET` = cek kesehatan. **Belum dipanggil Next.js** (T-18). 78 tes pytest
+  (`py -3.12 -m pytest`). Contoh request: `py -3.12 scripts/forecast_demo_request.py` → `scripts/out/`.
 - **Rekap per kategori + stok ayam** (D-26–D-29): 12 kategori live (diisi lewat SQL sekali pakai, di luar repo).
   Stok = belanja (kg + potong opsional, kapan saja) + sisa saat tutup → selisih; logika di `src/lib/stock.ts`.
-  K6a + K6b (D-29) menunggu tes — lihat `docs/TASKS.md`. Omzet, harga ayam, dan stok bahan selain ayam di luar scope.
+  Omzet, harga ayam, dan stok bahan selain ayam di luar scope.
   Tabel `menus` sekarang berisi **kategori menu**. Data asli klien (menu, harga, profil) tidak boleh masuk repo.
-- **Belum ada:** forecast sungguhan (T-16 → T-17 → T-18), simpan food waste, mode demo/live, import CSV, seed data simulasi di DB.
+- **Data simulasi:** dataset `demo` sudah terisi di Supabase lewat `scripts/generate_demo_data.py` (T-16, seed 42).
+- **Belum ada:** hasil forecast tersimpan & tampil (T-18 → T-19/T-20), simpan food waste, toggle demo/live, import CSV.
 - **Database:** skema di `supabase/migrations/0001_init.sql` (10 tabel, RLS tanpa policy). Isi tabel live = data asli
   klien → **jangan pernah dimasukkan ke repo** (repo publik).
 - **Deploy:** https://ayam-smart.vercel.app (auto-deploy dari `main`), region fungsi `sin1`. Cache Components dimatikan (D-16).
   Halaman pratinjau ISR 60 dtk + FreshnessGuard (D-19); halaman DB `force-dynamic`. Env di Vercel: `SUPABASE_URL`,
   `SUPABASE_SECRET_KEY`, `APP_PIN`, `SESSION_SECRET`, `FORECAST_SECRET`.
 - **Lokal:** Python 3.12.10 terpasang (dipanggil `py -3.12`; `python` default = 3.15, jangan dipakai).
-- **Berikutnya:** T-16 generator data simulasi → T-17 package forecast v1 (MA7, seasonal naive, Ridge, backtest WAPE)
-  → T-18 integrasi simpan rekap → forecast. Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
+- **Berikutnya:** uji & push T-17 → T-18 integrasi simpan rekap → panggil forecast (kirim `censored_dates` = hari
+  sisa ayam 0) → simpan `forecast_runs`/`forecasts`. Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
   (keduanya login via GitHub `ayamsmartdev`). 2FA belum diaktifkan (T-02).
 - **Keputusan yang belum final:** PIN (D-06) sudah jalan tapi menunggu persetujuan klien (Q-05).

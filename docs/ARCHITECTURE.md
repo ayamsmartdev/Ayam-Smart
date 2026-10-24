@@ -55,18 +55,22 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 ├─ requirements-dev.txt             # khusus laptop: -r requirements.txt + pytest + scikit-learn (pembanding tes)
 ├─ pytest.ini                       # root repo masuk sys.path untuk tes
 ├─ api/
-│  └─ forecast.py                   # Python Function → /api/forecast (kelas `handler`, cek secret, panggil forecasting) ✅ spike
+│  └─ forecast.py                   # Python Function → /api/forecast (kelas `handler`, cek secret, kontrak §6.1) ✅
 ├─ forecasting/                     # package Python murni, bisa dites tanpa server
 │  ├─ __init__.py
-│  ├─ features.py                   # pembentukan fitur
-│  ├─ models.py                     # Ridge numpy ✅ (MA7, seasonal naive menyusul T-17)
-│  ├─ backtest.py                   # rolling-origin backtest + WAPE + interval
-│  └─ run.py                        # orkestrasi per menu
+│  ├─ features.py                   # `Series` (riwayat satu kategori) + fitur Ridge ✅
+│  ├─ models.py                     # Ridge numpy + peramal ma7 / snaive / ridge ✅
+│  ├─ backtest.py                   # rolling-origin backtest + WAPE ✅
+│  ├─ run.py                        # pemilihan model, rentang, peringatan per seri ✅
+│  └─ contract.py                   # validasi request & susun response §6.1 ✅
 ├─ tests/
 │  ├─ test_models.py                # pytest: Ridge identik dengan scikit-learn ✅ (dev only)
+│  ├─ test_forecasting.py           # pytest: fitur, peramal, backtest, pemilihan, rentang, kontrak ✅
+│  ├─ test_api_forecast.py          # pytest: HTTP 401/503/400/413/500/200 dengan server lokal ✅
 │  └─ test_demo_data.py             # pytest: generator data simulasi ✅
 ├─ scripts/
-│  └─ generate_demo_data.py         # generator data simulasi dataset 'demo' (seed tetap) → scripts/out/demo_data.sql (diabaikan Git) ✅
+│  ├─ generate_demo_data.py         # generator data simulasi dataset 'demo' (seed tetap) → scripts/out/demo_data.sql (diabaikan Git) ✅
+│  └─ forecast_demo_request.py      # contoh body POST /api/forecast dari data simulasi → scripts/out/forecast_request.json ✅
 ├─ supabase/
 │  └─ migrations/                   # 0001_init.sql, dst. Dijalankan berurutan
 └─ src/
@@ -193,11 +197,29 @@ Request:
   "horizon": 5,
   "start_date": "2026-10-27",
   "series": [
-    { "menu_id": "uuid", "history": [ { "date": "2026-09-01", "qty": 40 } ] }
+    {
+      "menu_id": "uuid",
+      "history": [ { "date": "2026-09-01", "qty": 40 } ],
+      "censored_dates": [ "2026-09-03" ]
+    }
   ],
   "context": [ { "date": "2026-10-30", "tag": "gajian" } ]
 }
 ```
+
+Aturan validasi (`forecasting/contract.py`; salah → **400** dengan pesan Indonesia):
+
+| Field | Aturan |
+|---|---|
+| `horizon` | bilangan bulat 1–7 |
+| `start_date` | `YYYY-MM-DD`; semua tanggal `history` harus sebelum tanggal ini |
+| `series` | 1–50 seri, `menu_id` unik (string 1–64 karakter) |
+| `history` | ≤ 400 baris, tanggal unik, `qty` angka 0–100.000 (boleh desimal) |
+| `censored_dates` | opsional. Hari **stok ayam habis** (sisa freezer 0) untuk kategori ayam. Tanggal yang tidak ada di `history` diabaikan. Hanya memicu peringatan (D-30) |
+| `context` | opsional, ≤ 400, satu tag per tanggal, tag ∈ `ramai`, `sepi`, `libur`, `gajian` (boleh tanggal mendatang) |
+
+Status lain: secret salah/tidak ada **401**, `FORECAST_SECRET` kosong di server **503**, body > 1 MB **413**,
+galat tak terduga **500** (tanpa detail; detail di log Vercel). `GET` (dengan secret) = cek kesehatan.
 
 Response:
 ```json
@@ -211,9 +233,14 @@ Response:
       "forecast": [ { "date": "2026-10-27", "predicted": 42.3, "lower": 35.0, "upper": 50.1 } ],
       "warnings": []
     }
-  ]
+  ],
+  "meta": { "version": "t17", "compute_ms": 210.4, "import_ms": 217.0, "cold_start": false }
 }
 ```
+
+Seri tanpa riwayat → `model: null`, `forecast: []`, peringatan "Belum ada data penjualan.". `predicted`,
+`lower`, `upper` dibulatkan 1 desimal dan tidak pernah negatif. Waktu hitung lokal (data simulasi):
+12 seri × 120 hari ±0,2 dtk; 50 seri × 400 hari (batas maksimum) ±2,5 dtk.
 
 `history` hanya berisi hari yang punya data dan tidak bertanda `tutup`. `start_date` = **hari setelah
 tanggal data terakhir**. Contoh: rekap terakhir kemarin → prediksi mulai hari ini; setelah rekap hari ini
@@ -224,11 +251,13 @@ tanggal besok (WIB) dari hasil ini.
 
 | Kode | Model | Cara kerja |
 |---|---|---|
-| `ma7` | Rata-rata bergerak | Rata-rata 7 hari data terakhir |
-| `snaive` | Seasonal naive | Nilai hari yang sama minggu lalu; jika tidak ada → `ma7` |
-| `ridge` | Ridge regression (numpy, setara scikit-learn `StandardScaler` + `Ridge`; D-25) | Fitur: one-hot hari dalam seminggu, nilai lag-7, rata-rata 7 hari terakhir saat titik prediksi, one-hot penanda hari, indeks tren. Fitur distandarkan, `alpha` tetap |
+| `ma7` | Rata-rata bergerak | Rata-rata 7 hari tercatat terakhir |
+| `snaive` | Seasonal naive | Nilai hari yang sama minggu lalu; jika tidak ada → 2 minggu lalu; jika tidak ada → `ma7` |
+| `ridge` | Ridge regression (numpy, setara scikit-learn `StandardScaler` + `Ridge`; D-25), `alpha` = 1 | Fitur (`forecasting/features.py`): one-hot hari dalam seminggu (7), one-hot **awal bulan** tgl 1–5 dan 6–10 (2), one-hot penanda hari (4), lag-7 (kosong → rata-rata minggu lalu), **rata-rata minggu lalu** (d−13…d−7), indeks tren (bulan sejak data pertama). Fitur distandarkan. < 14 baris latih → memakai `ma7` |
 
-Horizon ≤ 7 hari memungkinkan lag-7 dipakai langsung tanpa prediksi rekursif.
+Semua fitur hanya memakai nilai ≤ d−7, jadi satu model berlaku untuk horizon 1–7 tanpa prediksi rekursif
+(prediksi tidak memakai prediksi). Hari tutup tidak ada di riwayat; lag dan rata-rata hanya memakai hari tercatat.
+Hari stok habis tetap dipakai melatih apa adanya (D-30).
 
 ### 6.3 Pemilihan Model (per menu)
 
@@ -238,7 +267,8 @@ Horizon ≤ 7 hari memungkinkan lag-7 dipakai langsung tanpa prediksi rekursif.
 | 7–27 | `ma7`, `snaive` (backtest jika ≥ 14 hari) |
 | ≥ 28 | `ma7`, `snaive`, `ridge` |
 
-Backtest: rolling origin pada hingga 14 titik asal terakhir, horizon 1–5. Metrik **WAPE**
+Backtest: rolling origin pada hingga 14 titik asal terakhir (tanggal tercatat, kecuali yang paling akhir),
+horizon 1…`horizon` request; hanya tanggal yang tercatat yang dinilai. Metrik **WAPE**
 = Σ|aktual − prediksi| / Σ aktual × 100, ditampilkan sebagai "error rata-rata" (D-10).
 Model dengan WAPE terkecil dipilih; jika selisih < 1 poin, pilih model yang lebih sederhana.
 
@@ -249,6 +279,20 @@ Model dengan WAPE terkecil dipilih; jika selisih < 1 poin, pilih model yang lebi
 
 Kuantil 10% dan 90% dari residual backtest model terpilih, ditambahkan ke prediksi, minimal 0.
 Jika residual < 10 titik, `lower` dan `upper` = `null` dan UI tidak menampilkan rentang.
+
+### 6.5 Peringatan per seri
+
+| Kondisi | Teks |
+|---|---|
+| < 7 hari data | "Data sangat sedikit (< 7 hari); prediksi memakai rata-rata sederhana." |
+| 7–13 hari | "Akurasi belum bisa diuji (< 14 hari data)." |
+| Ada `censored_dates` | "Ada N hari stok habis; penjualan hari itu bisa lebih rendah dari permintaan, jadi prediksi bisa sedikit rendah." |
+
+> **Catatan akurasi (data simulasi, 4 seed × 150 hari, 30 titik asal, horizon 5, vs permintaan sebenarnya):**
+> geprek bakar ±19%, kategori ayam kecil (1–6 porsi/hari) 35–93% karena angkanya kecil dan acak. Untuk
+> rekomendasi kg yang dipakai adalah **jumlah prediksi semua kategori ayam**, dan errornya jauh lebih kecil:
+> **WAPE 14,0%**, rata-rata kurang 1,25 porsi/hari (kesalahan antarkategori saling menutup). T-19/T-20
+> menampilkan error per kategori apa adanya. Angka simulasi, bukan data warung.
 
 ---
 
@@ -378,6 +422,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-27 | 24 Okt 2026 | Ayam dihitung **per kg dada**: setelan `pieces_per_kg` (default 9) menggantikan potong per ekor; rekomendasi beli = (rekomendasi potong − sisa freezer) ÷ potong per kg, dibulatkan ke atas per 0,5 kg | Klien hanya membeli dada per kg di pasar, 1 kg = 9–10 potong (Q-03). Angka 9 = batas bawah agar tidak kekurangan. Pembulatan 0,5 kg = asumsi satuan beli di pasar, bisa diubah | Diubah sebagian oleh D-28 (potong per kg pindah ke tiap bahan) |
 | D-28 | 24 Okt 2026 | **Potong per kg dan stok freezer per bahan**, bukan global: `ingredients.pieces_per_kg` (wajib jika dibeli per kg) dan `daily_stock.ingredient_id`. Setelan global `pieces_per_kg` dihapus (0003) | Diusulkan saat review: jika kelak ada menu paha/sayap, satu angka global membuat rekomendasi kg salah tanpa peringatan. Dibuat sebelum ada data stok dan sebelum form stok (K4), jadi hampir tanpa biaya. Warung yang hanya memakai dada tetap melihat satu baris | Berlaku |
 | D-29 | 24 Okt 2026 | Stok dicatat sesuai yang penjual tahu: **belanja** (kg + jumlah potong opsional, bisa disimpan kapan saja) dan **sisa masuk freezer** saat tutup; sistem menghitung tersedia → sisa seharusnya (dari rekap × resep) → **selisih** ("tidak tercatat: food waste, dipakai sendiri, atau salah hitung rekap"). Potong/kg pengaturan jadi perkiraan cadangan; rekomendasi memakai rata-rata 14 hari. Warung tutup tidak menghapus stok. Hanya ayam (bahan dibeli per kg); bahan lain di luar scope | Klien menghitung "dari habisnya bahan" dan tidak menghitung potong yang disiapkan. Ukuran ayam berubah tiap hari (1 kg bisa 8–10 potong), jadi angka tetap di pengaturan memicu selisih palsu; jumlah potong asli opsional agar belanja tetap tercatat walau tidak dihitung. Selisih mengukur indikator sukses klien ("stok ayam") tanpa input tambahan. Diputuskan bersama Fillian | Berlaku |
+| D-30 | 24 Okt 2026 | Forecast v1 (T-17): fitur Ridge ditambah **awal bulan** (tgl 1–5, 6–10) dan rata-rata minggu lalu; semua fitur ≥ d−7 sehingga horizon 1–7 tanpa rekursi. **Hari stok habis tetap dipakai melatih apa adanya** (tidak dibuang, tidak diimputasi); dikirim sebagai `censored_dates` hanya untuk peringatan | Klien: "hari rame awal bulan". Soal stok habis diuji pada data simulasi (8 seed × 150 hari, 30 titik asal terakhir, horizon 5, dibandingkan dengan **permintaan sebenarnya**): total porsi ayam Ridge WAPE 14,9% (apa adanya) vs 15,3% (buang hari habis) vs 14,9% (imputasi); pipeline lengkap 15,5% vs 15,5% (imputasi). Geprek bakar: 17,8% vs 17,7%. Membuang hari habis **lebih buruk** karena hari habis justru hari ramai (usulan awal dibatalkan); imputasi hanya membantu tipis dan tidak konsisten, jadi tidak sebanding dengan kerumitannya. Semua cara masih kurang ±2 porsi/hari; diatasi lewat cadangan % di rekomendasi. Angka ini dari simulasi, ulangi setelah data asli ±4 minggu | Berlaku |
 
 ---
 

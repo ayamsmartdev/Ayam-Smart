@@ -87,6 +87,10 @@ class DemoData:
     # (tanggal, kg dibeli, potong dibeli atau None, sisa ke freezer)
     stock: list[tuple[date, float, int | None, int]] = field(default_factory=list)
     closed: list[date] = field(default_factory=list)
+    # Permintaan ayam sebelum dibatasi stok (hanya untuk evaluasi, tidak masuk SQL).
+    demand: list[tuple[date, str, int]] = field(default_factory=list)
+    # Hari ayam habis (sisa 0 karena permintaan > stok).
+    stockout_dates: list[date] = field(default_factory=list)
     stockout_days: int = 0
     untracked_total: int = 0
 
@@ -146,8 +150,11 @@ def simulate(
         available = prev_leftover + bought
 
         sold = demand.copy()
+        for c, q in zip(cats, demand, strict=True):
+            data.demand.append((d, c, int(q)))
         if int((sold * ppp).sum()) > available:
             data.stockout_days += 1
+            data.stockout_dates.append(d)
             # Kurangi porsi sampai muat di stok, mulai dari kategori dengan porsi terbanyak.
             while int((sold * ppp).sum()) > available:
                 sold[int(np.argmax(sold))] -= 1

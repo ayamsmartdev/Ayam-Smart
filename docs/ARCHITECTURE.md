@@ -240,7 +240,8 @@ Response:
 
 Seri tanpa riwayat → `model: null`, `forecast: []`, peringatan "Belum ada data penjualan.". `predicted`,
 `lower`, `upper` dibulatkan 1 desimal dan tidak pernah negatif. Waktu hitung lokal (data simulasi):
-12 seri × 120 hari ±0,2 dtk; 50 seri × 400 hari (batas maksimum) ±2,5 dtk.
+12 seri × 120 hari ±0,2 dtk; 50 seri × 400 hari (batas maksimum) ±2,5 dtk. Di Vercel `sin1` (25 Okt):
+import 224 ms, request 12 seri × 119 hari (±51 KB) 0,88–0,95 dtk dari Semarang termasuk jaringan, hasil identik dengan lokal.
 
 `history` hanya berisi hari yang punya data dan tidak bertanda `tutup`. `start_date` = **hari setelah
 tanggal data terakhir**. Contoh: rekap terakhir kemarin → prediksi mulai hari ini; setelah rekap hari ini
@@ -346,7 +347,7 @@ Sudah diimplementasikan (D-21). Lokasi: `src/lib/pin-token.ts`, `src/lib/pin.ts`
 | `APP_PIN` | Next.js server | PIN bersama, disarankan 6 digit |
 | `SESSION_SECRET` | Next.js server | Penanda tangan cookie PIN + garam hash IP; ganti = semua perangkat logout |
 | `FORECAST_URL` | Next.js server | URL fungsi Python — belum dipakai Next.js (T-18) |
-| `FORECAST_SECRET` | Next.js server + Python | Secret bersama; sudah dicek `api/forecast.py` (kosong → 503). Next.js memakainya mulai T-18 |
+| `FORECAST_SECRET` | Next.js server + Python | Secret bersama; sudah dicek `api/forecast.py` (kosong → 503). Next.js memakainya mulai T-18. Nilai di Vercel = `.env.local`; mengubahnya hanya lewat dashboard Vercel lalu **Redeploy** |
 
 Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fillian) dan Vercel.
 

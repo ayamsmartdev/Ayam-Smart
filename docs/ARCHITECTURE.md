@@ -82,7 +82,7 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
    │  ├─ page.tsx                   # Beranda                         simulasi
    │  ├─ prediksi/                  # Prediksi per menu               simulasi
    │  ├─ bahan/                     # Rekomendasi bahan baku          simulasi
-   │  ├─ rekap/                     # Rekap harian            (PIN)   ✅ data nyata (live)
+   │  ├─ rekap/                     # Rekap harian            (PIN)   ✅ data nyata (live) + kartu Prediksi (forecast-panel.tsx)
    │  ├─ waste/                     # Food waste              (PIN)   simulasi
    │  ├─ pengaturan/                # Menu, bahan, resep, setelan (PIN) ✅ data nyata
    │  │  ├─ menu-manager.tsx  ingredient-manager.tsx  recipe-editor.tsx  settings-form.tsx
@@ -91,7 +91,7 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
    │  ├─ pin/                       # Form PIN                        ✅
    │  └─ status/                    # Cek koneksi 10 tabel (tanpa isi data, tidak di navigasi) ✅
    ├─ actions/                      # Server Actions — SEMUA penulisan data, masing-masing cek PIN sendiri
-   │  ├─ pin.ts  rekap.ts  menus.ts  ingredients.ts  recipes.ts  settings.ts
+   │  ├─ pin.ts  rekap.ts  forecast.ts  menus.ts  ingredients.ts  recipes.ts  settings.ts
    ├─ components/
    │  ├─ icons.tsx                  # ikon SVG buatan sendiri
    │  ├─ ui/                        # Panel, Button, Badge, GroupedList, Stepper, Segmented, PageHeader,
@@ -113,7 +113,8 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
       ├─ preview-forecast.ts        # forecast pratinjau TypeScript (D-18)                       sementara
       ├─ preview.ts                 # penyusun angka pratinjau                                  sementara
       ├─ dataset.ts                 # baca mode demo/live dari cookie                            belum
-      ├─ forecast-client.ts         # panggil Python + simpan hasil                              belum
+      ├─ forecast-request.ts        # susun body §6.1 + baca response (murni, bisa dites)        ✅
+      ├─ forecast-client.ts         # baca data → panggil Python → simpan hasil; baca hasil terakhir (server-only) ✅
       └─ csv.ts                     # parse & validasi CSV                                       belum
 ```
 
@@ -170,8 +171,24 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 3. Upsert ke `daily_sales` dataset `live` untuk semua kategori aktif; upsert/hapus `daily_stock` per bahan; hapus tag
    `tutup` jika ada. Data tersimpan di titik ini. Stok juga bisa disimpan sendiri lewat `saveStock` (kartu "Simpan stok",
    untuk belanja pagi/siang).
-4. **Belum:** panggil `runForecast('live')` (§6). Rencana: jika gagal → `forecast_runs.status = 'failed'` dan pesan
-   "Data tersimpan, forecast gagal — tekan Hitung ulang". Data tetap aman.
+4. Setelah tersimpan: `runForecast('live')` (`src/lib/forecast-client.ts`, D-31) — ditunggu di action yang sama
+   (±1 dtk). Hasilnya ikut di response (`forecast: { ok, message }`) → toast "Prediksi diperbarui." atau
+   "Prediksi gagal diperbarui, lihat kartu Prediksi." **Rekap tetap tersimpan walau forecast gagal.**
+
+**Forecast (T-18) — sudah berjalan** (`src/lib/forecast-client.ts`, `src/actions/forecast.ts`)
+1. Baca kategori aktif, `daily_sales` ≤ 407 hari terakhir (berhalaman 1000 baris, batas Supabase), `daily_context`,
+   sisa freezer bahan ayam, resep kategori → bahan ayam.
+2. `buildForecastRequest` (`src/lib/forecast-request.ts`): hari tutup dibuang; `start_date` = sehari setelah rekap/tutup
+   terakhir; horizon 7; maks 400 hari per seri; `censored_dates` = hari sisa ayam 0 untuk kategori yang resepnya
+   memakai bahan ayam itu; penanda hari (kecuali `tutup`) dari awal riwayat s.d. akhir horizon.
+3. `POST FORECAST_URL` + header secret, batas waktu 20 dtk; response divalidasi (`parseForecastResponse`).
+4. Simpan: 1 baris `forecast_runs` (`status ok`, `summary` = `start_date`, `horizon`, `menus{id: model, error_pct,
+   data_days, warnings}`, `meta`) + titik di `forecasts`. Jika simpan titik gagal, run dihapus lagi. Run > 30 hari
+   dihapus (titiknya ikut, cascade).
+5. Gagal (env kosong, fungsi mati/timeout, 401/400/5xx, response aneh, gagal simpan) → baris `status failed` dengan
+   `summary.error` berbahasa Indonesia; kartu Prediksi menampilkannya sampai ada run ok yang lebih baru.
+6. Tombol **Hitung ulang** (kartu Prediksi di `/rekap`) → `recalculateForecast('live')` (cek PIN). Nonaktif selama
+   ada perubahan rekap yang belum disimpan. Dataset `demo` sudah didukung action untuk T-25.
 
 **Kelola master data — sudah berjalan** (`src/actions/menus.ts`, `ingredients.ts`, `recipes.ts`, `settings.ts`)
 - Setiap action: cek PIN → validasi → tulis → `revalidatePath` → `{ ok, message }` atau `{ ok: false, error, needPin? }`.
@@ -346,7 +363,7 @@ Sudah diimplementasikan (D-21). Lokasi: `src/lib/pin-token.ts`, `src/lib/pin.ts`
 | `SUPABASE_SECRET_KEY` | Next.js server | Key server-side ("secret" / "service_role") |
 | `APP_PIN` | Next.js server | PIN bersama, disarankan 6 digit |
 | `SESSION_SECRET` | Next.js server | Penanda tangan cookie PIN + garam hash IP; ganti = semua perangkat logout |
-| `FORECAST_URL` | Next.js server | URL fungsi Python — belum dipakai Next.js (T-18) |
+| `FORECAST_URL` | Next.js server | URL fungsi Python. Lokal: `http://127.0.0.1:8000/api/forecast` (jalankan `py -3.12 api\forecast.py`). Di Vercel **boleh kosong**: otomatis `https://<VERCEL_PROJECT_PRODUCTION_URL>/api/forecast` (domain produksi, bukan URL deployment yang bisa terkunci Deployment Protection) |
 | `FORECAST_SECRET` | Next.js server + Python | Secret bersama; sudah dicek `api/forecast.py` (kosong → 503). Next.js memakainya mulai T-18. Nilai di Vercel = `.env.local`; mengubahnya hanya lewat dashboard Vercel lalu **Redeploy** |
 
 Tidak ada variabel `NEXT_PUBLIC_*`. Nilai asli hanya di `.env.local` (laptop Fillian) dan Vercel.
@@ -424,6 +441,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-28 | 24 Okt 2026 | **Potong per kg dan stok freezer per bahan**, bukan global: `ingredients.pieces_per_kg` (wajib jika dibeli per kg) dan `daily_stock.ingredient_id`. Setelan global `pieces_per_kg` dihapus (0003) | Diusulkan saat review: jika kelak ada menu paha/sayap, satu angka global membuat rekomendasi kg salah tanpa peringatan. Dibuat sebelum ada data stok dan sebelum form stok (K4), jadi hampir tanpa biaya. Warung yang hanya memakai dada tetap melihat satu baris | Berlaku |
 | D-29 | 24 Okt 2026 | Stok dicatat sesuai yang penjual tahu: **belanja** (kg + jumlah potong opsional, bisa disimpan kapan saja) dan **sisa masuk freezer** saat tutup; sistem menghitung tersedia → sisa seharusnya (dari rekap × resep) → **selisih** ("tidak tercatat: food waste, dipakai sendiri, atau salah hitung rekap"). Potong/kg pengaturan jadi perkiraan cadangan; rekomendasi memakai rata-rata 14 hari. Warung tutup tidak menghapus stok. Hanya ayam (bahan dibeli per kg); bahan lain di luar scope | Klien menghitung "dari habisnya bahan" dan tidak menghitung potong yang disiapkan. Ukuran ayam berubah tiap hari (1 kg bisa 8–10 potong), jadi angka tetap di pengaturan memicu selisih palsu; jumlah potong asli opsional agar belanja tetap tercatat walau tidak dihitung. Selisih mengukur indikator sukses klien ("stok ayam") tanpa input tambahan. Diputuskan bersama Fillian | Berlaku |
 | D-30 | 24 Okt 2026 | Forecast v1 (T-17): fitur Ridge ditambah **awal bulan** (tgl 1–5, 6–10) dan rata-rata minggu lalu; semua fitur ≥ d−7 sehingga horizon 1–7 tanpa rekursi. **Hari stok habis tetap dipakai melatih apa adanya** (tidak dibuang, tidak diimputasi); dikirim sebagai `censored_dates` hanya untuk peringatan | Klien: "hari rame awal bulan". Soal stok habis diuji pada data simulasi (8 seed × 150 hari, 30 titik asal terakhir, horizon 5, dibandingkan dengan **permintaan sebenarnya**): total porsi ayam Ridge WAPE 14,9% (apa adanya) vs 15,3% (buang hari habis) vs 14,9% (imputasi); pipeline lengkap 15,5% vs 15,5% (imputasi). Geprek bakar: 17,8% vs 17,7%. Membuang hari habis **lebih buruk** karena hari habis justru hari ramai (usulan awal dibatalkan); imputasi hanya membantu tipis dan tidak konsisten, jadi tidak sebanding dengan kerumitannya. Semua cara masih kurang ±2 porsi/hari; diatasi lewat cadangan % di rekomendasi. Angka ini dari simulasi, ulangi setelah data asli ±4 minggu | Berlaku |
+| D-31 | 25 Okt 2026 | Integrasi forecast (T-18): dihitung **langsung di action simpan rekap** (ditunggu, bukan latar belakang); horizon **7**; ringkasan per kategori (model, error, hari data, peringatan) di `forecast_runs.summary` tanpa migrasi; run disimpan 30 hari; gagal = run `failed` + pesan, rekap tidak terpengaruh; `FORECAST_URL` di Vercel boleh kosong (pakai domain produksi) | Ditunggu: hasil/pesan gagal langsung terlihat dan pasti selesai (proses latar belakang bisa terpotong saat halaman ditutup); biaya ±1 dtk per simpan. Horizon 7 = besok + seminggu untuk Beranda/Bahan; waktu hitung tetap ±1 dtk. Skema 0001 sudah punya `summary jsonb`, jadi tidak perlu migrasi baru. Domain produksi dipakai karena URL deployment bisa diproteksi Vercel | Berlaku |
 
 ---
 

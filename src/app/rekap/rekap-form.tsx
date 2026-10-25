@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { saveRekap, saveStock, type SaveRekapResult } from "@/actions/rekap";
+import { recalculateForecast } from "@/actions/forecast";
+import { saveRekap, saveStock } from "@/actions/rekap";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { useLeaveGuard } from "@/components/hooks/use-leave-guard";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { cn } from "@/lib/cn";
 import { addDays, formatDayLong, relativeDayLabel } from "@/lib/date";
 import { formatNumber } from "@/lib/format";
 import type { StockInputItem, StockValues } from "@/lib/stock";
+import { ForecastPanel, type ForecastPanelData } from "./forecast-panel";
 import {
   EMPTY_DRAFT,
   parseInt0,
@@ -36,6 +38,9 @@ type Initial = {
 };
 
 const MAX_DAYS_BACK = 30;
+
+/** Bentuk umum hasil Server Action di halaman ini. */
+type ActionResult = { ok: true } | { ok: false; error: string; needPin?: boolean };
 
 function formatSavedAt(iso: string): string {
   return new Intl.DateTimeFormat("id-ID", {
@@ -60,12 +65,14 @@ export function RekapForm({
   date,
   today,
   initial,
+  forecast,
 }: {
   menus: Menu[];
   stockIngredients: StockCardIngredient[];
   date: string;
   today: string;
   initial: Initial;
+  forecast: ForecastPanelData | null;
 }) {
   const router = useRouter();
   const [closed, setClosed] = useState(initial.closed);
@@ -110,7 +117,7 @@ export function RekapForm({
   };
 
   /** Tangani hasil action. Hasil kosong = proxy memotong permintaan (sesi PIN habis). */
-  const handle = (result: SaveRekapResult | null, what: string): result is Extract<SaveRekapResult, { ok: true }> => {
+  const handle = <R extends ActionResult>(result: R | null, what: string): result is Extract<R, { ok: true }> => {
     if (!result) {
       setNeedPin(true);
       setToast(`${what} belum tersimpan. Sesi PIN mungkin habis, masukkan PIN lagi.`);
@@ -138,10 +145,16 @@ export function RekapForm({
     setStockSavedAt(stockHasValues ? result.savedAt : null);
     setSalesDirty(false);
     setStockDirty(false);
+    const saved = closed
+      ? "Tersimpan: warung tutup."
+      : `Rekap tersimpan: ${formatNumber(total)} porsi${stockHasValues ? ", stok dicatat" : ""}.`;
+    // Rekap sudah aman walau prediksi gagal; detail kegagalan tampil di kartu Prediksi.
     setToast(
-      closed
-        ? "Tersimpan: warung tutup."
-        : `Rekap tersimpan: ${formatNumber(total)} porsi${stockHasValues ? ", stok dicatat" : ""}.`,
+      !result.forecast
+        ? saved
+        : result.forecast.ok
+          ? `${saved} Prediksi diperbarui.`
+          : `${saved} Prediksi gagal diperbarui, lihat kartu Prediksi.`,
     );
     return true;
   };
@@ -159,6 +172,13 @@ export function RekapForm({
   const save = () =>
     startTransition(async () => {
       if (await persistAll()) router.refresh();
+    });
+
+  const recalculate = () =>
+    startTransition(async () => {
+      const result = await recalculateForecast("live").catch(() => null);
+      if (handle(result, "Prediksi")) setToast(result.message);
+      router.refresh(); // tampilkan hasil atau pesan gagal terbaru di kartu Prediksi
     });
 
   const saveStockOnly = () =>
@@ -301,6 +321,8 @@ export function RekapForm({
           onSave={saveStockOnly}
         />
       ) : null}
+
+      <ForecastPanel data={forecast} dirty={dirty} pending={pending} onRecalculate={recalculate} />
 
       {needPin ? (
         <Link

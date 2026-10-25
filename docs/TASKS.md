@@ -79,7 +79,12 @@
     `scripts/forecast_demo_request.py`, 78 tes pytest. D-30: hari stok habis tetap dipakai apa adanya (diuji 3 cara)
   - ✅ diuji Fillian & di-push `8b53fe4`: lokal 78 tes + curl identik; Vercel `sin1` (Python 3.12.14) import 224 ms,
     request 12 seri × 119 hari 0,88–0,95 dtk dari Semarang, hasil identik dengan lokal, secret salah → 401
-- [ ] T-18 (F) Integrasi: simpan rekap → panggil forecast → simpan `forecast_runs` & `forecasts`; tombol "Hitung ulang"; penanganan gagal
+- [~] T-18 (F) Integrasi: simpan rekap → panggil forecast → simpan `forecast_runs` & `forecasts`; tombol "Hitung ulang"; penanganan gagal
+  - ✅ file siap (D-31): `lib/forecast-request.ts` (murni), `lib/forecast-client.ts`, `actions/forecast.ts`, `saveRekap` memanggil
+    forecast, kartu Prediksi + Hitung ulang di `/rekap`. Diuji di sini: 20 cek unit + 19 cek Playwright (mock Supabase 400 hari
+    data simulasi, fungsi Python asli): simpan → 84 titik, baca berhalaman > 1000 baris, `censored_dates` hanya kategori ayam,
+    fungsi mati / secret salah → pesan + run failed tanpa membatalkan rekap, run > 30 hari dibersihkan, `next build` lolos
+  - **Sisa:** uji Fillian lokal + production, lalu push
 - [ ] T-19 (F) Dashboard v1: kartu ringkasan + grafik historis & prediksi
 - [ ] T-1A (F+K) Demo Sprint 1 ke Julius; catat masukan di §Log dan backlog
 
@@ -151,3 +156,4 @@
 - 2026-10-24 — K6 lolos uji production. T-16a: generator data simulasi + 10 tes; bug alias SQL `left` (kata kunci) ketahuan saat uji PGlite dan diperbaiki. Simulasi dengan kebiasaan beli 5–6 kg: ayam habis ±16% hari (awal bulan/promo) — temuan simulasi, bukan fakta warung.
 - 2026-10-24 — T-16 selesai (16b dijalankan di Supabase). T-17a/b/c dikerjakan sekaligus: forecast v1 sesuai kontrak §6.1, 78 tes. Usulan awal "buang hari stok habis dari latihan" **dibatalkan** setelah diuji di simulasi (lebih buruk: hari habis = hari ramai); imputasi hanya membantu tipis → D-30 memakai data apa adanya + peringatan. Generator kini mencatat permintaan sebelum stok habis (khusus evaluasi, tidak masuk SQL).
 - 2026-10-25 — T-17 lolos uji Fillian (lokal + Vercel, hasil identik) dan di-push `8b53fe4`. `FORECAST_SECRET` di Vercel diganti ke nilai `.env.local` komputer rumah (secret lokal dibuat ulang saat setup); env Vercel hanya bisa diubah lewat dashboard + Redeploy. Berikutnya T-18.
+- 2026-10-25 — T-18 file siap (D-31): forecast dihitung saat rekap disimpan + tombol Hitung ulang + kartu Prediksi di `/rekap`. Catatan: `next dev` (16.4) menambahkan blok "nextjs-agent-rules" ke `AGENTS.md`; dimatikan lewat `agentRules: false` di `next.config.ts`.

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveMenus, getStockIngredients, LIVE, parseRekapDate } from "@/lib/data/rekap";
+import { runForecast } from "@/lib/forecast-client";
 import { isPinVerified } from "@/lib/pin";
 import { cleanStockInput, type StockInputItem } from "@/lib/stock";
 import { getSupabase } from "@/lib/supabase-server";
@@ -15,7 +16,7 @@ export type SaveRekapInput = {
 };
 
 export type SaveRekapResult =
-  | { ok: true; savedAt: string }
+  | { ok: true; savedAt: string; forecast?: { ok: boolean; message: string } }
   | { ok: false; error: string; needPin?: boolean };
 
 const MAX_QTY = 9999;
@@ -50,6 +51,15 @@ async function writeStock(supabase: Supabase, date: string, stock: CleanStock) {
   }
 }
 
+/**
+ * Hitung ulang prediksi setelah rekap tersimpan (T-18). Gagal di sini TIDAK membatalkan rekap:
+ * rekap sudah aman di database, pengguna cukup menekan "Hitung ulang".
+ */
+async function refreshForecast(): Promise<{ ok: boolean; message: string }> {
+  const outcome = await runForecast(LIVE);
+  return outcome.ok ? { ok: true, message: outcome.message } : { ok: false, message: outcome.error };
+}
+
 async function validStock(date: string, raw: unknown) {
   const ingredients = await getStockIngredients(date);
   return cleanStockInput(raw, new Set(ingredients.map((i) => i.id)));
@@ -79,6 +89,7 @@ export async function saveStock(input: { date: string; stock: StockInputItem[] }
  * - Tutup: rekap porsi tanggal itu dihapus dan ditandai 'tutup' (dikeluarkan dari prediksi).
  *   Stok TIDAK dihapus: isi freezer tetap ada walau warung tutup (D-29).
  * - Stok (jika dikirim) divalidasi sebelum ada yang ditulis, lalu ikut disimpan.
+ * - Setelah tersimpan, prediksi dihitung ulang; hasilnya dilaporkan di `forecast` (§5).
  */
 export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult> {
   // Wajib di setiap Server Action tulis — jangan hanya mengandalkan proxy.ts.
@@ -104,7 +115,7 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
         .upsert({ dataset: LIVE, ctx_date: date, tag: "tutup", note: null }, { onConflict: "dataset,ctx_date" });
       if (ctx.error) throw ctx.error;
       await writeStock(supabase, date, stock);
-      return { ok: true, savedAt: new Date().toISOString() };
+      return { ok: true, savedAt: new Date().toISOString(), forecast: await refreshForecast() };
     }
 
     const menus = await getActiveMenus();
@@ -141,7 +152,7 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
       .eq("tag", "tutup");
     if (reopen.error) throw reopen.error;
 
-    return { ok: true, savedAt: new Date().toISOString() };
+    return { ok: true, savedAt: new Date().toISOString(), forecast: await refreshForecast() };
   } catch {
     return DB_DOWN;
   }

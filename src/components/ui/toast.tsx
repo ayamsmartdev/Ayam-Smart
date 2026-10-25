@@ -2,13 +2,13 @@
 
 import { useEffect, useEffectEvent } from "react";
 
-/** Notifikasi singkat di atas tab bar; hilang sendiri setelah 3,5 detik. */
+/** Notifikasi singkat di atas tab bar; hilang sendiri setelah 3,5 detik (pesan panjang lebih lama, maks 8 detik). */
 export function Toast({ message, onDone }: { message: string | null; onDone: () => void }) {
   const done = useEffectEvent(onDone);
 
   useEffect(() => {
     if (!message) return;
-    const t = window.setTimeout(() => done(), 3500);
+    const t = window.setTimeout(() => done(), Math.min(8000, Math.max(3500, message.length * 60)));
     return () => window.clearTimeout(t);
   }, [message]);
 

@@ -81,8 +81,9 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
    │  ├─ globals.css                # token tema, utilitas glass/glass-bar
    │  ├─ page.tsx                   # Beranda (beli kg besok, grafik, 7 hari, selisih stok)   ✅ forecast tersimpan, mode demo/live
    │  ├─ prediksi/                  # Prediksi per kategori + model, error, peringatan, Hitung ulang ✅ forecast tersimpan
-   │  ├─ bahan/                     # Rekomendasi bahan besok / 7 hari                     ✅ forecast tersimpan
-   │  ├─ rekap/                     # Rekap harian            (PIN)   ✅ data nyata (live) + kartu Prediksi (forecast-panel.tsx)
+   │  ├─ bahan/                     # Rekomendasi beli besok / 7 hari (forecast tersimpan) + catat stok ayam (PIN, live) ✅
+   │  │  ├─ needs-view.tsx  stock-section.tsx  stock-card.tsx
+   │  ├─ rekap/                     # Rekap porsi terjual per kategori (PIN, live) — cadangan bila penjualan dari kasir ✅
    │  ├─ waste/                     # Food waste              (PIN)   simulasi
    │  ├─ pengaturan/                # Menu, bahan, resep, setelan (PIN) ✅ data nyata
    │  │  ├─ menu-manager.tsx  ingredient-manager.tsx  recipe-editor.tsx  settings-form.tsx
@@ -172,13 +173,14 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
 
 **Input rekap (F2) — sudah berjalan** (`src/actions/rekap.ts`)
 1. Server Action menerima tanggal + daftar `{menuId, qty}`, cek PIN (`isPinVerified`), validasi manual.
-2. Validasi stok (`cleanStockInput`, `src/lib/stock.ts`) sebelum menulis apa pun.
-3. Upsert ke `daily_sales` dataset `live` untuk semua kategori aktif; upsert/hapus `daily_stock` per bahan; hapus tag
-   `tutup` jika ada. Data tersimpan di titik ini. Stok juga bisa disimpan sendiri lewat `saveStock` (kartu "Simpan stok",
-   untuk belanja pagi/siang).
+2. Upsert ke `daily_sales` dataset `live` untuk semua kategori aktif; hapus tag `tutup` jika ada. Data tersimpan di
+   titik ini.
+3. **Stok ayam disimpan terpisah** (D-34): halaman **Bahan** → `saveStock` (validasi `cleanStockInput`, upsert/hapus
+   `daily_stock`), bisa untuk tanggal mana pun s.d. 30 hari lalu. Selisih stok dihitung dari rekap porsi yang **sudah
+   tersimpan** untuk tanggal itu.
 4. Setelah tersimpan: `runForecast('live')` (`src/lib/forecast-client.ts`, D-31) — ditunggu di action yang sama
    (±1 dtk). Hasilnya ikut di response (`forecast: { ok, message }`) → toast "Prediksi diperbarui." atau
-   "Prediksi gagal diperbarui, lihat kartu Prediksi." **Rekap tetap tersimpan walau forecast gagal.**
+   "Prediksi gagal diperbarui: <alasan>". **Rekap tetap tersimpan walau forecast gagal.**
 
 **Forecast (T-18) — sudah berjalan** (`src/lib/forecast-client.ts`, `src/actions/forecast.ts`)
 1. Baca kategori aktif, `daily_sales` ≤ 407 hari terakhir (berhalaman 1000 baris, batas Supabase), `daily_context`,
@@ -191,9 +193,9 @@ Kolom `dataset` bernilai `'demo'` atau `'live'` (D-08).
    data_days, warnings}`, `meta`) + titik di `forecasts`. Jika simpan titik gagal, run dihapus lagi. Run > 30 hari
    dihapus (titiknya ikut, cascade).
 5. Gagal (env kosong, fungsi mati/timeout, 401/400/5xx, response aneh, gagal simpan) → baris `status failed` dengan
-   `summary.error` berbahasa Indonesia; kartu Prediksi menampilkannya sampai ada run ok yang lebih baru.
-6. Tombol **Hitung ulang** (kartu Prediksi di `/rekap`) → `recalculateForecast('live')` (cek PIN). Nonaktif selama
-   ada perubahan rekap yang belum disimpan. Dataset `demo` sudah didukung action untuk T-25.
+   `summary.error` berbahasa Indonesia; halaman Prediksi/Beranda/Bahan menampilkannya sampai ada run ok yang lebih baru.
+6. Tombol **Hitung ulang / Hitung prediksi** di halaman Prediksi (dan Beranda/Bahan saat prediksi kosong) →
+   `recalculateForecast(dataset yang tampil)` (cek PIN). Kartu Prediksi di Rekap dihapus (D-34).
 
 **Kelola master data — sudah berjalan** (`src/actions/menus.ts`, `ingredients.ts`, `recipes.ts`, `settings.ts`)
 - Setiap action: cek PIN → validasi → tulis → `revalidatePath` → `{ ok, message }` atau `{ ok: false, error, needPin? }`.
@@ -466,6 +468,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-28 | 24 Okt 2026 | **Potong per kg dan stok freezer per bahan**, bukan global: `ingredients.pieces_per_kg` (wajib jika dibeli per kg) dan `daily_stock.ingredient_id`. Setelan global `pieces_per_kg` dihapus (0003) | Diusulkan saat review: jika kelak ada menu paha/sayap, satu angka global membuat rekomendasi kg salah tanpa peringatan. Dibuat sebelum ada data stok dan sebelum form stok (K4), jadi hampir tanpa biaya. Warung yang hanya memakai dada tetap melihat satu baris | Berlaku |
 | D-29 | 24 Okt 2026 | Stok dicatat sesuai yang penjual tahu: **belanja** (kg + jumlah potong opsional, bisa disimpan kapan saja) dan **sisa masuk freezer** saat tutup; sistem menghitung tersedia → sisa seharusnya (dari rekap × resep) → **selisih** ("tidak tercatat: food waste, dipakai sendiri, atau salah hitung rekap"). Potong/kg pengaturan jadi perkiraan cadangan; rekomendasi memakai rata-rata 14 hari. Warung tutup tidak menghapus stok. Hanya ayam (bahan dibeli per kg); bahan lain di luar scope | Klien menghitung "dari habisnya bahan" dan tidak menghitung potong yang disiapkan. Ukuran ayam berubah tiap hari (1 kg bisa 8–10 potong), jadi angka tetap di pengaturan memicu selisih palsu; jumlah potong asli opsional agar belanja tetap tercatat walau tidak dihitung. Selisih mengukur indikator sukses klien ("stok ayam") tanpa input tambahan. Diputuskan bersama Fillian | Berlaku |
 | D-30 | 24 Okt 2026 | Forecast v1 (T-17): fitur Ridge ditambah **awal bulan** (tgl 1–5, 6–10) dan rata-rata minggu lalu; semua fitur ≥ d−7 sehingga horizon 1–7 tanpa rekursi. **Hari stok habis tetap dipakai melatih apa adanya** (tidak dibuang, tidak diimputasi); dikirim sebagai `censored_dates` hanya untuk peringatan | Klien: "hari rame awal bulan". Soal stok habis diuji pada data simulasi (8 seed × 150 hari, 30 titik asal terakhir, horizon 5, dibandingkan dengan **permintaan sebenarnya**): total porsi ayam Ridge WAPE 14,9% (apa adanya) vs 15,3% (buang hari habis) vs 14,9% (imputasi); pipeline lengkap 15,5% vs 15,5% (imputasi). Geprek bakar: 17,8% vs 17,7%. Membuang hari habis **lebih buruk** karena hari habis justru hari ramai (usulan awal dibatalkan); imputasi hanya membantu tipis dan tidak konsisten, jadi tidak sebanding dengan kerumitannya. Semua cara masih kurang ±2 porsi/hari; diatasi lewat cadangan % di rekomendasi. Angka ini dari simulasi, ulangi setelah data asli ±4 minggu | Berlaku |
+| D-34 | 25 Okt 2026 | **Rekap hanya rekap porsi**: kartu stok ayam pindah ke halaman **Bahan** (bersama rekomendasi beli, dengan navigasi tanggal sendiri), kartu Prediksi + Hitung ulang hanya di halaman **Prediksi**. `saveRekap` tidak lagi menerima stok. Bahan tetap bisa dilihat tanpa PIN; bagian catat stok minta PIN | Penjualan kemungkinan masuk dari kasir Ketoko (import), jadi Rekap jadi cadangan; pengguna cukup ke Bahan untuk belanja & sisa tanpa membuka Rekap. Rekomendasi "beli X kg" bersebelahan dengan isian "Dibeli … kg". Usulan Fillian | Berlaku |
 | D-33 | 25 Okt 2026 | **Ridge jadi model utama** untuk setiap kategori dengan ≥ 28 hari data; `alpha` dipilih per kategori lewat backtest (1/3/10/30/100). `ma7` hanya cadangan (< 28 hari) dan pembanding yang ditampilkan ("cara biasa"). `snaive` dan aturan "seri < 1 poin → model sederhana" dihapus. Response menambah `baseline_error_pct`, `alpha`, `factors`; halaman Prediksi menampilkan "Faktor yang dipelajari" (|pengaruh| ≥ maks(0,5 porsi, 5% rata-rata prediksi)) | Klien meminta machine learning yang belajar dari pola historis (hari, tanggal, kondisi); aturan lama sering memilih rata-rata 7 hari sehingga ML "tidak terlihat". Uji di simulasi 120 hari: dengan alpha per kategori, Ridge ≤ rata-rata 7 hari di 10/12 kategori (mis. geprek bakar 18,8% vs 18,9%, spesial 53,3% vs 74,6%); kalah tipis di lele 49,0% vs 44,9% dan bakso 47,0% vs 45,6% (non-ayam, ±0,15 porsi/hari). Diputuskan Fillian | Berlaku; mengganti bagian pemilihan model D-10 (metrik WAPE tetap) |
 | D-32 | 25 Okt 2026 | Mode tampilan demo/live (T-25) lewat cookie per browser, **tanpa PIN** (hanya pilihan tampilan, tidak menulis database); default otomatis `live` bila rekap warung ≥ 14 hari, selain itu `demo`. Beranda/Prediksi/Bahan jadi `force-dynamic` (membaca cookie + database). Label Simulasi pindah dari kerangka aplikasi ke kartu mode di tiap halaman (Waste tetap berlabel Simulasi) | Data warung belum terkumpul (rekap belum mulai, kasir Ketoko belum dipakai); demo 4 Nov perlu tampilan lengkap yang jujur berlabel. 14 hari = ambang uji akurasi (§6.3). Menggantikan rencana "default live + tawarkan demo". Konsekuensi: halaman ini tidak lagi ISR (D-19), jadi sedikit lebih lambat dibuka | Berlaku |
 | D-31 | 25 Okt 2026 | Integrasi forecast (T-18): dihitung **langsung di action simpan rekap** (ditunggu, bukan latar belakang); horizon **7**; ringkasan per kategori (model, error, hari data, peringatan) di `forecast_runs.summary` tanpa migrasi; run disimpan 30 hari; gagal = run `failed` + pesan, rekap tidak terpengaruh; `FORECAST_URL` di Vercel boleh kosong (pakai domain produksi) | Ditunggu: hasil/pesan gagal langsung terlihat dan pasti selesai (proses latar belakang bisa terpotong saat halaman ditutup); biaya ±1 dtk per simpan. Horizon 7 = besok + seminggu untuk Beranda/Bahan; waktu hitung tetap ±1 dtk. Skema 0001 sudah punya `summary jsonb`, jadi tidak perlu migrasi baru. Domain produksi dipakai karena URL deployment bisa diproteksi Vercel | Berlaku |

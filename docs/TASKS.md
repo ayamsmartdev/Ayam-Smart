@@ -88,8 +88,10 @@
 - [x] T-19 (F) Dashboard v1: kartu ringkasan + grafik historis & prediksi
   - ✅ (sprint T-19 + T-20 + T-25, D-32) Beranda dari forecast tersimpan (beli kg besok − sisa freezer, grafik 30 hari +
     prediksi total, 7 hari + selisih stok, kategori terlaris). Diuji Fillian lokal + production, di-push `ef795f9`
-- [~] T-19b (F) **Ridge model utama (D-33)**: alpha per kategori, ma7 cadangan + pembanding, faktor yang dipelajari di Prediksi —
-  ✅ file siap (85 tes pytest, e2e). **Sisa:** uji Fillian, push, lalu Hitung ulang prediksi demo
+- [x] T-19b (F) **Ridge model utama (D-33)**: alpha per kategori, ma7 cadangan + pembanding, faktor yang dipelajari di Prediksi —
+  ✅ diuji Fillian & di-push `140808e`
+- [~] T-19c (F) **Rekap hanya rekap porsi (D-34)**: stok ayam → Bahan, kartu prediksi → Prediksi — ✅ file siap (e2e 9 cek + 24 cek
+  dashboard). **Sisa:** uji Fillian, push
 - [ ] T-1A (F+K) Demo Sprint 1 ke Julius; catat masukan di §Log dan backlog
 
 ## Sprint 2 — Fitur Pelengkap (29 Okt–1 Nov)
@@ -165,3 +167,4 @@
 - 2026-10-25 — T-18 file siap (D-31): forecast dihitung saat rekap disimpan + tombol Hitung ulang + kartu Prediksi di `/rekap`. Catatan: `next dev` (16.4) menambahkan blok "nextjs-agent-rules" ke `AGENTS.md`; dimatikan lewat `agentRules: false` di `next.config.ts`.
 - 2026-10-25 — T-18 lolos uji & di-push `72372b2`. Ketoko (kasir klien, desktop) dicek: export .xlsx berbentuk laporan cetak, transaksi masih kosong → T-23 menunggu contoh berisi data; usulan ke Julius: isi "Jenis" item Ketoko = 12 kategori. Sprint T-19 + T-20 + T-25 (+T-24) file siap (D-32): Beranda/Prediksi/Bahan dari forecast tersimpan, mode demo/live otomatis. Pemisahan stok/prediksi dari Rekap ditunda (keputusan Fillian).
 - 2026-10-25 — Sprint T-19/T-20/T-24/T-25 lolos uji lokal + production (pindah halaman sedikit lebih lambat, masih ditoleransi), di-push `ef795f9`. Fillian: "rata-rata 7 hari bukan machine learning" → D-33: Ridge model utama dengan alpha per kategori (Ridge ≤ rata-rata 7 hari di 10/12 kategori simulasi), ma7 hanya cadangan & pembanding, faktor yang dipelajari ditampilkan.
+- 2026-10-25 — D-33 (Ridge model utama) lolos uji & di-push `140808e`. D-34 dikerjakan atas usulan Fillian: Rekap hanya porsi, stok ayam di Bahan, prediksi & Hitung ulang di Prediksi.

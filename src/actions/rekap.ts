@@ -11,8 +11,6 @@ export type SaveRekapInput = {
   date: string;
   closed: boolean;
   items: { menuId: string; qty: number }[];
-  /** Stok (belanja/sisa) per bahan; opsional, ikut disimpan bila dikirim (D-29). */
-  stock?: StockInputItem[];
 };
 
 export type SaveRekapResult =
@@ -76,7 +74,8 @@ export async function saveStock(input: { date: string; stock: StockInputItem[] }
     const stock = await validStock(date, input.stock);
     if (!stock.ok) return stock;
     await writeStock(getSupabase(), date, stock);
-    revalidatePath("/rekap");
+    // Sisa freezer & potong/kg ikut menentukan rekomendasi beli dan selisih stok di Beranda/Bahan.
+    for (const path of ["/rekap", "/bahan", "/"]) revalidatePath(path);
     return { ok: true, savedAt: new Date().toISOString() };
   } catch {
     return DB_DOWN;
@@ -88,7 +87,7 @@ export async function saveStock(input: { date: string; stock: StockInputItem[] }
  * - Buka: semua kategori aktif di-upsert, termasuk yang 0 (0 = terjual nol, bukan "belum direkap").
  * - Tutup: rekap porsi tanggal itu dihapus dan ditandai 'tutup' (dikeluarkan dari prediksi).
  *   Stok TIDAK dihapus: isi freezer tetap ada walau warung tutup (D-29).
- * - Stok (jika dikirim) divalidasi sebelum ada yang ditulis, lalu ikut disimpan.
+ * - Stok ayam disimpan terpisah lewat `saveStock` (halaman Bahan).
  * - Setelah tersimpan, prediksi dihitung ulang; hasilnya dilaporkan di `forecast` (§5).
  */
 export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult> {
@@ -104,9 +103,6 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
   const supabase = getSupabase();
 
   try {
-    const stock = await validStock(date, input.stock);
-    if (!stock.ok) return stock;
-
     if (input.closed) {
       const del = await supabase.from("daily_sales").delete().eq("dataset", LIVE).eq("sale_date", date);
       if (del.error) throw del.error;
@@ -114,7 +110,6 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
         .from("daily_context")
         .upsert({ dataset: LIVE, ctx_date: date, tag: "tutup", note: null }, { onConflict: "dataset,ctx_date" });
       if (ctx.error) throw ctx.error;
-      await writeStock(supabase, date, stock);
       return { ok: true, savedAt: new Date().toISOString(), forecast: await refreshForecast() };
     }
 
@@ -140,8 +135,6 @@ export async function saveRekap(input: SaveRekapInput): Promise<SaveRekapResult>
     const rows = menus.map((m) => ({ dataset: LIVE, sale_date: date, menu_id: m.id, qty: byMenu.get(m.id) ?? 0 }));
     const up = await supabase.from("daily_sales").upsert(rows, { onConflict: "dataset,sale_date,menu_id" });
     if (up.error) throw up.error;
-
-    await writeStock(supabase, date, stock);
 
     // Hari ini buka → hapus tanda 'tutup' bila sebelumnya ada (tanda lain dibiarkan).
     const reopen = await supabase

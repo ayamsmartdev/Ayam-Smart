@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { recalculateForecast } from "@/actions/forecast";
-import { saveRekap, saveStock } from "@/actions/rekap";
+import { saveRekap, type SaveRekapResult } from "@/actions/rekap";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { useLeaveGuard } from "@/components/hooks/use-leave-guard";
 import { Button } from "@/components/ui/button";
@@ -14,33 +13,15 @@ import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { addDays, formatDayLong, relativeDayLabel } from "@/lib/date";
 import { formatNumber } from "@/lib/format";
-import type { StockInputItem, StockValues } from "@/lib/stock";
-import { ForecastPanel, type ForecastPanelData } from "./forecast-panel";
-import {
-  EMPTY_DRAFT,
-  parseInt0,
-  parseKg,
-  sanitizeStockField,
-  StockCard,
-  type StockCardIngredient,
-  type StockDraft,
-  stockDraftError,
-} from "./stock-card";
 
 type Menu = { id: string; name: string; description: string | null };
 type Initial = {
   qtyByMenu: Record<string, number>;
-  stockByIngredient: Record<string, StockValues>;
-  previousLeftoverByIngredient: Record<string, number | null>;
   closed: boolean;
   savedAt: string | null;
-  stockSavedAt: string | null;
 };
 
 const MAX_DAYS_BACK = 30;
-
-/** Bentuk umum hasil Server Action di halaman ini. */
-type ActionResult = { ok: true } | { ok: false; error: string; needPin?: boolean };
 
 function formatSavedAt(iso: string): string {
   return new Intl.DateTimeFormat("id-ID", {
@@ -52,152 +33,81 @@ function formatSavedAt(iso: string): string {
   }).format(new Date(iso));
 }
 
-const toText = (v: number | null) => (v === null ? "" : String(v).replace(".", ","));
-
-function initialDraft(v: StockValues | undefined): StockDraft {
-  if (!v) return EMPTY_DRAFT;
-  return { kg: toText(v.boughtKg), pieces: toText(v.boughtPieces), leftover: toText(v.leftover) };
-}
-
+/**
+ * Rekap porsi terjual per kategori (cadangan bila penjualan tidak dari kasir).
+ * Stok ayam dicatat di halaman Bahan; status & Hitung ulang prediksi ada di halaman Prediksi.
+ */
 export function RekapForm({
   menus,
-  stockIngredients,
   date,
   today,
   initial,
-  forecast,
 }: {
   menus: Menu[];
-  stockIngredients: StockCardIngredient[];
   date: string;
   today: string;
   initial: Initial;
-  forecast: ForecastPanelData | null;
 }) {
   const router = useRouter();
   const [closed, setClosed] = useState(initial.closed);
   const [qty, setQty] = useState<Record<string, number>>(() =>
     Object.fromEntries(menus.map((m) => [m.id, initial.qtyByMenu[m.id] ?? 0])),
   );
-  const [stock, setStock] = useState<Record<string, StockDraft>>(() =>
-    Object.fromEntries(stockIngredients.map((i) => [i.id, initialDraft(initial.stockByIngredient[i.id])])),
-  );
   const [savedAt, setSavedAt] = useState(initial.savedAt);
-  const [stockSavedAt, setStockSavedAt] = useState(initial.stockSavedAt);
-  const [salesDirty, setSalesDirty] = useState(false);
-  const [stockDirty, setStockDirty] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [needPin, setNeedPin] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const dirty = salesDirty || stockDirty;
   const total = Object.values(qty).reduce((a, b) => a + b, 0);
   const prev = addDays(date, -1);
   const next = addDays(date, 1);
   const canPrev = prev >= addDays(today, -MAX_DAYS_BACK);
   const canNext = next <= today;
-
+  const canSave = closed || total > 0;
   const { pendingHref, clearPending } = useLeaveGuard(dirty);
-  const stockInvalid = stockIngredients.some((i) => stockDraftError(stock[i.id] ?? EMPTY_DRAFT) !== null);
-  const canSaveRekap = (closed || total > 0) && !stockInvalid;
-  const canSaveStockOnly = stockDirty && !stockInvalid;
-  const stockHasValues = stockIngredients.some((i) => Object.values(stock[i.id] ?? EMPTY_DRAFT).some((v) => v !== ""));
 
-  const stockPayload = (): StockInputItem[] =>
-    stockIngredients.map((i) => {
-      const d = stock[i.id] ?? EMPTY_DRAFT;
-      return { ingredientId: i.id, boughtKg: parseKg(d.kg), boughtPieces: parseInt0(d.pieces), leftover: parseInt0(d.leftover) };
-    });
-
-  const updateStock = (id: string, field: keyof StockDraft, raw: string) => {
-    const value = sanitizeStockField(field, raw);
-    if (value === null) return; // ketikan tidak sesuai format (mis. 3 desimal) diabaikan
-    setStock((prevStock) => ({ ...prevStock, [id]: { ...(prevStock[id] ?? EMPTY_DRAFT), [field]: value } }));
-    setStockDirty(true);
-  };
-
-  /** Tangani hasil action. Hasil kosong = proxy memotong permintaan (sesi PIN habis). */
-  const handle = <R extends ActionResult>(result: R | null, what: string): result is Extract<R, { ok: true }> => {
-    if (!result) {
-      setNeedPin(true);
-      setToast(`${what} belum tersimpan. Sesi PIN mungkin habis, masukkan PIN lagi.`);
-      return false;
-    }
-    if (!result.ok) {
-      setNeedPin(Boolean(result.needPin));
-      setToast(result.error);
-      return false;
-    }
-    setNeedPin(false);
-    return true;
-  };
-
-  /** Simpan rekap porsi + stok sekaligus. True jika berhasil. */
-  const persistAll = async (): Promise<boolean> => {
-    const result = await saveRekap({
+  /** Simpan rekap. True jika berhasil. Hasil kosong = proxy memotong permintaan (sesi PIN habis). */
+  const persist = async (): Promise<boolean> => {
+    const result: SaveRekapResult | null = await saveRekap({
       date,
       closed,
       items: menus.map((m) => ({ menuId: m.id, qty: qty[m.id] ?? 0 })),
-      stock: stockPayload(),
     }).catch(() => null);
-    if (!handle(result, "Rekap")) return false;
+    if (!result || !result.ok) {
+      setNeedPin(!result || Boolean(result.needPin));
+      setToast(result ? result.error : "Rekap belum tersimpan. Sesi PIN mungkin habis, masukkan PIN lagi.");
+      return false;
+    }
+    setNeedPin(false);
     setSavedAt(result.savedAt);
-    setStockSavedAt(stockHasValues ? result.savedAt : null);
-    setSalesDirty(false);
-    setStockDirty(false);
-    const saved = closed
-      ? "Tersimpan: warung tutup."
-      : `Rekap tersimpan: ${formatNumber(total)} porsi${stockHasValues ? ", stok dicatat" : ""}.`;
-    // Rekap sudah aman walau prediksi gagal; detail kegagalan tampil di kartu Prediksi.
+    setDirty(false);
+    const saved = closed ? "Tersimpan: warung tutup." : `Rekap tersimpan: ${formatNumber(total)} porsi.`;
+    // Rekap sudah aman walau prediksi gagal; alasan gagal ditampilkan apa adanya.
     setToast(
       !result.forecast
         ? saved
         : result.forecast.ok
           ? `${saved} Prediksi diperbarui.`
-          : `${saved} Prediksi gagal diperbarui, lihat kartu Prediksi.`,
+          : `${saved} Prediksi gagal diperbarui: ${result.forecast.message}`,
     );
-    return true;
-  };
-
-  /** Simpan stok saja (belanja pagi/siang, atau sisa). True jika berhasil. */
-  const persistStock = async (): Promise<boolean> => {
-    const result = await saveStock({ date, stock: stockPayload() }).catch(() => null);
-    if (!handle(result, "Stok")) return false;
-    setStockSavedAt(stockHasValues ? result.savedAt : null);
-    setStockDirty(false);
-    setToast(stockHasValues ? "Stok tersimpan." : "Catatan stok hari ini dihapus.");
     return true;
   };
 
   const save = () =>
     startTransition(async () => {
-      if (await persistAll()) router.refresh();
+      if (await persist()) router.refresh();
     });
 
-  const recalculate = () =>
-    startTransition(async () => {
-      const result = await recalculateForecast("live").catch(() => null);
-      if (handle(result, "Prediksi")) setToast(result.message);
-      router.refresh(); // tampilkan hasil atau pesan gagal terbaru di kartu Prediksi
-    });
-
-  const saveStockOnly = () =>
-    startTransition(async () => {
-      if (await persistStock()) router.refresh();
-    });
-
-  // Saat pindah halaman: simpan semuanya bila rekap porsi bisa disimpan; jika hanya stok yang berubah, simpan stok.
-  const canSaveBeforeLeaving = salesDirty ? canSaveRekap : canSaveStockOnly;
   const saveThenLeave = (href: string) =>
     startTransition(async () => {
-      const ok = salesDirty ? await persistAll() : await persistStock();
+      const ok = await persist();
       clearPending(); // tutup dialog; jika gagal, pesan kesalahan jadi terlihat
       if (ok) router.push(href);
     });
 
   const leaveWithoutSaving = (href: string) => {
-    setSalesDirty(false);
-    setStockDirty(false);
+    setDirty(false);
     clearPending();
     router.push(href);
   };
@@ -209,9 +119,7 @@ export function RekapForm({
     ? "Ada perubahan yang belum disimpan."
     : savedAt
       ? `Sudah direkap, terakhir disimpan ${formatSavedAt(savedAt)}.`
-      : stockSavedAt
-        ? "Stok sudah dicatat, porsi terjual belum direkap."
-        : "Belum direkap untuk tanggal ini.";
+      : "Belum direkap untuk tanggal ini.";
 
   return (
     <div className="space-y-5">
@@ -251,11 +159,9 @@ export function RekapForm({
           {dirty ? <span className="size-2 shrink-0 rounded-full bg-sambal-500" aria-hidden="true" /> : null}
           {statusText}
         </p>
-        {stockIngredients.length > 0 ? (
-          <a href="#stock-heading" className="shrink-0 text-[14px] font-semibold text-brand-700">
-            Isi belanja ↓
-          </a>
-        ) : null}
+        <Link href={`/bahan?tanggal=${date}`} className="shrink-0 text-[14px] font-semibold text-brand-700">
+          Catat stok →
+        </Link>
       </div>
 
       <label className="glass flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-panel px-4">
@@ -268,7 +174,7 @@ export function RekapForm({
           checked={closed}
           onChange={(e) => {
             setClosed(e.target.checked);
-            setSalesDirty(true);
+            setDirty(true);
           }}
           className="peer sr-only"
         />
@@ -296,33 +202,17 @@ export function RekapForm({
                 value={qty[m.id] ?? 0}
                 onChange={(v) => {
                   setQty((prevQty) => ({ ...prevQty, [m.id]: v }));
-                  setSalesDirty(true);
+                  setDirty(true);
                 }}
                 max={9999}
               />
             </li>
           ))}
         </ul>
+        <p className="mt-2 px-1 text-[13px] text-ink-soft">
+          Setelah disimpan, prediksi dihitung ulang otomatis. Status dan Hitung ulang ada di halaman Prediksi.
+        </p>
       </section>
-
-      {stockIngredients.length > 0 ? (
-        <StockCard
-          ingredients={stockIngredients}
-          drafts={stock}
-          previousLeftover={initial.previousLeftoverByIngredient}
-          qtyByMenu={qty}
-          salesFilled={total > 0}
-          closed={closed}
-          dirty={stockDirty}
-          invalid={stockInvalid}
-          pending={pending}
-          savedLabel={stockSavedAt ? `Stok tersimpan ${formatSavedAt(stockSavedAt)}.` : null}
-          onChange={updateStock}
-          onSave={saveStockOnly}
-        />
-      ) : null}
-
-      <ForecastPanel data={forecast} dirty={dirty} pending={pending} onRecalculate={recalculate} />
 
       {needPin ? (
         <Link
@@ -340,7 +230,7 @@ export function RekapForm({
             {closed ? "Tutup" : `${formatNumber(total)} porsi`}
           </span>
         </p>
-        <Button onClick={save} disabled={pending || !canSaveRekap}>
+        <Button onClick={save} disabled={pending || !canSave}>
           {pending ? "Menyimpan…" : savedAt ? "Simpan perubahan" : "Simpan rekap"}
         </Button>
       </div>
@@ -351,7 +241,7 @@ export function RekapForm({
         title="Rekap belum disimpan"
         description={`Perubahan untuk ${relativeDayLabel(date, today).toLowerCase()} akan hilang kalau kamu pindah halaman sekarang.`}
       >
-        {canSaveBeforeLeaving ? (
+        {canSave ? (
           <Button onClick={() => pendingHref && saveThenLeave(pendingHref)} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan lalu pindah"}
           </Button>

@@ -127,10 +127,7 @@ export function StockCard({
   onSave: () => void;
 }) {
   return (
-    <section aria-labelledby="stock-heading">
-      <h2 id="stock-heading" className="px-1 text-[15px] font-semibold text-ink-soft">
-        Stok ayam
-      </h2>
+    <section aria-label="Stok ayam">
       <p className="mb-2 px-1 text-[13px] text-ink-soft">
         Belanja bisa diisi kapan saja. Sisa diisi saat tutup, dari isi freezer.
       </p>

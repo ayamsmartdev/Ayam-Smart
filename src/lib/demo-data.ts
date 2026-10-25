@@ -5,7 +5,7 @@
  */
 import { addDays, dayOfMonth, dayOfWeek } from "./date";
 
-export type Unit = "potong" | "porsi" | "gram" | "gelas";
+export type Unit = "potong" | "porsi" | "gram" | "gelas" | "kg" | "ml" | "pcs";
 
 export type Menu = { id: string; name: string };
 /** `piecesPerKg` hanya untuk bahan yang dibeli per kg (D-28). */

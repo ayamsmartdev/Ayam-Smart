@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { SimulasiBadge } from "@/components/ui/badge";
 import { BrandWordmark } from "./brand-mark";
 import { SidebarNav, TabBar } from "./nav";
 
@@ -17,10 +16,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           <BrandWordmark />
         </Link>
         <SidebarNav />
-        <div className="mt-auto rounded-row bg-kriuk-50/80 p-3 text-[13px] leading-relaxed text-ink-soft">
-          <SimulasiBadge className="mb-1.5" />
-          <p>Angka di pratinjau ini simulasi sampai rekap harian mulai diisi.</p>
-        </div>
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -29,7 +24,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link href="/" aria-label="AYAMSMART, ke beranda">
               <BrandWordmark />
             </Link>
-            <SimulasiBadge />
           </div>
         </header>
 

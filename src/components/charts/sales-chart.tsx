@@ -14,7 +14,7 @@ import {
 import { Segmented } from "@/components/ui/segmented";
 import { formatDayMonth, formatDayShort } from "@/lib/date";
 import { formatNumber } from "@/lib/format";
-import type { ChartPoint } from "@/lib/preview";
+import type { ChartPoint } from "@/lib/dashboard";
 
 const BRAND = "#2660dc";
 const BAND = "#bcd3ff";
@@ -53,7 +53,7 @@ function ChartTooltip({
 }
 
 /** Penjualan aktual (garis tegas) + prediksi (putus-putus) + kisaran (area biru muda). */
-export function SalesChart({ data }: { data: ChartPoint[] }) {
+export function SalesChart({ data, showBand = true }: { data: ChartPoint[]; showBand?: boolean }) {
   const [range, setRange] = useState<Range>("14");
   const forecastCount = data.filter((d) => d.actual === null).length;
   const visible = data.slice(-(Number(range) + forecastCount));
@@ -70,10 +70,12 @@ export function SalesChart({ data }: { data: ChartPoint[] }) {
             <span className="w-4 border-t-2 border-dashed border-brand-600" aria-hidden="true" />
             Prediksi
           </li>
-          <li className="flex items-center gap-1.5">
-            <span className="h-2.5 w-4 rounded-sm bg-brand-200" aria-hidden="true" />
-            Kisaran
-          </li>
+          {showBand ? (
+            <li className="flex items-center gap-1.5">
+              <span className="h-2.5 w-4 rounded-sm bg-brand-200" aria-hidden="true" />
+              Kisaran
+            </li>
+          ) : null}
         </ul>
         <Segmented
           label="Rentang grafik"

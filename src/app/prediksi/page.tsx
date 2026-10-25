@@ -1,18 +1,86 @@
+import { DatabaseDown } from "@/components/dataset/database-down";
+import { DatasetBar } from "@/components/dataset/dataset-bar";
+import { ForecastNotice } from "@/components/dataset/forecast-notice";
+import { RecalculateButton } from "@/components/dataset/recalculate-button";
 import { PageHeader } from "@/components/ui/page-header";
-import { getPreviewSnapshot } from "@/lib/preview";
-import { ForecastView } from "./forecast-view";
+import { Panel } from "@/components/ui/panel";
+import { modelLabel } from "@/lib/dashboard";
+import { loadDashboardPage } from "@/lib/data/dashboard";
+import { todayWIB } from "@/lib/date";
+import { LIVE_MIN_DAYS } from "@/lib/dataset";
+import { ForecastView, type ForecastOption } from "./forecast-view";
 
-export default function PrediksiPage() {
-  const s = getPreviewSnapshot();
-  const options = [
-    { id: "semua", name: "Semua menu", forecast: s.total },
-    ...s.menus.map((m) => ({ id: m.menu.id, name: m.menu.name, forecast: m.forecast })),
+// Membaca cookie mode data + database → selalu dirender saat dibuka (D-19, D-32).
+export const dynamic = "force-dynamic";
+
+export default async function PrediksiPage() {
+  const today = todayWIB();
+  const page = await loadDashboardPage(today);
+  const header = <PageHeader title="Prediksi" subtitle="Perkiraan porsi terjual 7 hari ke depan" />;
+  if (!page) {
+    return (
+      <>
+        {header}
+        <DatabaseDown what="Prediksi" />
+      </>
+    );
+  }
+  const { choice, snapshot: s } = page;
+  const visible = (d: string) => d >= today;
+  const options: ForecastOption[] = [
+    {
+      id: "semua",
+      name: "Semua kategori",
+      points: s.totalPoints.filter((p) => visible(p.date)).map((p) => ({ ...p, lower: null, upper: null })),
+      modelText: "Jumlah prediksi semua kategori",
+      errorPct: null,
+      dataDays: Math.max(0, ...s.categories.map((c) => c.dataDays)),
+      warnings: [],
+    },
+    ...s.categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      points: c.points.filter((p) => visible(p.date)),
+      modelText: modelLabel(c.model),
+      errorPct: c.errorPct,
+      dataDays: c.dataDays,
+      warnings: c.warnings,
+    })),
   ];
 
   return (
     <>
-      <PageHeader title="Prediksi" subtitle="Perkiraan porsi terjual 5 hari ke depan" />
-      <ForecastView options={options} today={s.today} />
+      {header}
+      <DatasetBar dataset={choice.dataset} auto={choice.auto} liveDays={choice.liveDays} liveMinDays={LIVE_MIN_DAYS} />
+      <div className="space-y-5">
+        <Panel aria-label="Status prediksi">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
+              {s.forecast ? (
+                <ForecastNotice s={s} />
+              ) : (
+                <>
+                  <p className="text-[16px] font-semibold">Prediksi belum dihitung</p>
+                  <p className="text-[14px] text-ink-soft">
+                    {s.lastDataDate === null
+                      ? "Belum ada data penjualan di mode ini."
+                      : "Tekan Hitung prediksi untuk menjalankan model dari data yang ada."}
+                  </p>
+                  <ForecastNotice s={s} />
+                </>
+              )}
+            </div>
+            {s.lastDataDate !== null ? (
+              <RecalculateButton
+                dataset={choice.dataset}
+                returnTo="/prediksi"
+                label={s.forecast ? "Hitung ulang" : "Hitung prediksi"}
+              />
+            ) : null}
+          </div>
+        </Panel>
+        {s.forecast ? <ForecastView options={options} today={today} /> : null}
+      </div>
     </>
   );
 }

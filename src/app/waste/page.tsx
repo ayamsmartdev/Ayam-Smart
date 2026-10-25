@@ -1,3 +1,4 @@
+import { SimulasiBadge } from "@/components/ui/badge";
 import { GroupedList, ListRow } from "@/components/ui/grouped-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
@@ -13,7 +14,11 @@ export default function WastePage() {
 
   return (
     <>
-      <PageHeader title="Food waste" subtitle="Catat yang terbuang supaya persiapan makin pas" />
+      <PageHeader
+        title="Food waste"
+        subtitle="Catat yang terbuang supaya persiapan makin pas"
+        action={<SimulasiBadge />}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
         <div className="space-y-5">

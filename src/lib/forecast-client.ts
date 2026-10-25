@@ -7,6 +7,8 @@ import {
   parseForecastResponse,
   type ForecastResult,
 } from "@/lib/forecast-request";
+import { selectAll } from "@/lib/data/select-all";
+import type { Dataset } from "@/lib/dataset";
 import { getSupabase } from "@/lib/supabase-server";
 
 /**
@@ -16,7 +18,7 @@ import { getSupabase } from "@/lib/supabase-server";
  * - Gagal: 1 baris `forecast_runs` status failed + pesan; data rekap tidak tersentuh.
  */
 
-export type Dataset = "live" | "demo";
+export type { Dataset };
 export type ForecastOutcome =
   | { ok: true; runId: string; startDate: string; message: string }
   | { ok: false; error: string };
@@ -25,7 +27,6 @@ export type ForecastOutcome =
 export type MenuSummary = { model: string | null; error_pct: number | null; data_days: number; warnings: string[] };
 
 const TIMEOUT_MS = 20_000;
-const PAGE = 1000; // batas baris per request Supabase
 const KEEP_RUNS_DAYS = 30;
 
 type Supabase = ReturnType<typeof getSupabase>;
@@ -40,17 +41,6 @@ function forecastConfig(): { url: string; secret: string } | null {
   const production = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   const url = explicit || (production ? `https://${production}/api/forecast` : "");
   return secret && url ? { url, secret } : null;
-}
-
-/** Ambil semua baris (lewat batas 1000 baris Supabase). */
-async function selectAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
-  const rows: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await build(from, from + PAGE - 1);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE) return rows;
-  }
 }
 
 async function loadInput(supabase: Supabase, dataset: Dataset) {

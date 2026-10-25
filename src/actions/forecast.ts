@@ -14,6 +14,6 @@ export async function recalculateForecast(dataset: unknown = "live"): Promise<Re
   }
   if (dataset !== "live" && dataset !== "demo") return { ok: false, error: "Dataset tidak dikenal." };
   const outcome = await runForecast(dataset as Dataset);
-  revalidatePath("/rekap");
+  for (const path of ["/rekap", "/", "/prediksi", "/bahan"]) revalidatePath(path);
   return outcome.ok ? { ok: true, message: outcome.message } : { ok: false, error: outcome.error };
 }

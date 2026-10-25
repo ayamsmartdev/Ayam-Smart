@@ -34,13 +34,13 @@ export default function LainnyaPage() {
 
         <Panel aria-labelledby="about-sim">
           <div className="flex items-center gap-2">
-            <PanelTitle id="about-sim">Tentang data di pratinjau ini</PanelTitle>
+            <PanelTitle id="about-sim">Tentang data di aplikasi ini</PanelTitle>
             <SimulasiBadge />
           </div>
           <p className="mt-2 max-w-prose text-[15px] leading-relaxed text-ink-soft">
-            Menu, resep, dan angka penjualan masih contoh. Setelah rekap harian mulai diisi,
-            dashboard, prediksi, dan rekomendasi bahan memakai data warung yang sebenarnya, dan
-            label Simulasi hilang.
+            Beranda, Prediksi, dan Bahan bisa menampilkan <strong>data warung</strong> (dari rekap harian) atau
+            <strong> simulasi</strong> (contoh untuk peragaan). Pilihannya ada di bagian atas halaman tersebut;
+            otomatis memakai data warung setelah rekap terkumpul 14 hari. Halaman Food waste masih simulasi.
           </p>
         </Panel>
       </div>

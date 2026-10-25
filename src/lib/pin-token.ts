@@ -15,6 +15,8 @@ export const PIN_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 hari
 
 /** Halaman yang wajib PIN. Sumber tunggal untuk proxy.ts dan validasi `next`. */
 export const PROTECTED_PREFIXES = ["/rekap", "/waste", "/pengaturan", "/import"] as const;
+/** Halaman tanpa PIN yang boleh jadi tujuan kembali setelah PIN (mis. tombol Hitung ulang di Prediksi). */
+const PUBLIC_RETURN_PATHS = ["/", "/prediksi", "/bahan"] as const;
 
 function secrets(): { pin: string; secret: string } | null {
   const pin = process.env.APP_PIN?.trim();
@@ -53,5 +55,6 @@ export function verifyPinToken(
 export function safeNextPath(next: string | null | undefined): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return "/rekap";
   const isProtected = PROTECTED_PREFIXES.some((p) => next === p || next.startsWith(`${p}/`));
-  return isProtected ? next : "/rekap";
+  const isPublicReturn = (PUBLIC_RETURN_PATHS as readonly string[]).includes(next);
+  return isProtected || isPublicReturn ? next : "/rekap";
 }

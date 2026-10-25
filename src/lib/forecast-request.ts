@@ -107,10 +107,17 @@ export function buildForecastRequest(input: BuildInput): ForecastRequestBody | n
 
 // ── Response ────────────────────────────────────────────────────────────────
 export type ForecastPoint = { date: string; predicted: number; lower: number | null; upper: number | null };
+/** Pengaruh satu faktor menurut Ridge (porsi), mis. { key: "tgl_1_5", effect: 1.8 } (D-33). */
+export type ForecastFactor = { key: string; effect: number };
+
 export type ForecastResult = {
   menuId: string;
   model: string | null;
   errorPct: number | null;
+  /** Error rata-rata 7 hari sebagai pembanding (D-33). */
+  baselineErrorPct: number | null;
+  alpha: number | null;
+  factors: ForecastFactor[];
   dataDays: number;
   forecast: ForecastPoint[];
   warnings: string[];
@@ -137,6 +144,16 @@ export function parseForecastResponse(json: unknown, menuIds: string[]): Forecas
       menuId: r.menu_id,
       model: typeof r.model === "string" ? r.model : null,
       errorPct: numOrNull(r.error_pct),
+      baselineErrorPct: numOrNull(r.baseline_error_pct),
+      alpha: numOrNull(r.alpha),
+      factors: Array.isArray(r.factors)
+        ? r.factors
+            .filter(
+              (f): f is { key: string; effect: number } =>
+                typeof f?.key === "string" && /^[a-z0-9_]{1,30}$/.test(f.key) && isNum(f.effect),
+            )
+            .map((f) => ({ key: f.key, effect: f.effect }))
+        : [],
       dataDays: isNum(r.data_days) ? r.data_days : 0,
       forecast,
       warnings: Array.isArray(r.warnings) ? r.warnings.filter((w): w is string => typeof w === "string") : [],

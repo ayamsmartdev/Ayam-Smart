@@ -59,9 +59,9 @@ Alur utama: **simpan data → server ambil riwayat → panggil Python → simpan
 ├─ forecasting/                     # package Python murni, bisa dites tanpa server
 │  ├─ __init__.py
 │  ├─ features.py                   # `Series` (riwayat satu kategori) + fitur Ridge ✅
-│  ├─ models.py                     # Ridge numpy + peramal ma7 / snaive / ridge ✅
-│  ├─ backtest.py                   # rolling-origin backtest + WAPE ✅
-│  ├─ run.py                        # pemilihan model, rentang, peringatan per seri ✅
+│  ├─ models.py                     # Ridge numpy + peramal ridge (utama) / ma7 (cadangan) + faktor ✅
+│  ├─ backtest.py                   # rolling-origin backtest + WAPE + backtest Ridge banyak alpha sekaligus ✅
+│  ├─ run.py                        # Ridge ≥ 28 hari (pilih alpha), ma7 cadangan, pembanding, rentang, peringatan ✅
 │  └─ contract.py                   # validasi request & susun response §6.1 ✅
 ├─ tests/
 │  ├─ test_models.py                # pytest: Ridge identik dengan scikit-learn ✅ (dev only)
@@ -259,14 +259,22 @@ Response:
       "menu_id": "uuid",
       "model": "ridge",
       "error_pct": 18.2,
+      "baseline_error_pct": 18.9,
+      "alpha": 10.0,
       "data_days": 56,
       "forecast": [ { "date": "2026-10-27", "predicted": 42.3, "lower": 35.0, "upper": 50.1 } ],
+      "factors": [ { "key": "tgl_1_5", "effect": 1.8 }, { "key": "hari_0", "effect": -1.1 } ],
       "warnings": []
     }
   ],
-  "meta": { "version": "t17", "compute_ms": 210.4, "import_ms": 217.0, "cold_start": false }
+  "meta": { "version": "d33", "compute_ms": 210.4, "import_ms": 217.0, "cold_start": false }
 }
 ```
+
+Field D-33: `baseline_error_pct` = WAPE rata-rata 7 hari sebagai pembanding (null jika < 14 hari); `alpha` = regularisasi
+Ridge terpilih (null jika `ma7`); `factors` = pengaruh faktor menurut Ridge dalam porsi (kosong jika `ma7`): `hari_0…hari_6`
+(Senin…Minggu, selisih terhadap rata-rata ketujuh hari), `tgl_1_5`, `tgl_6_10`, `tag_*` (hanya tag yang pernah muncul di
+riwayat), `tren` (porsi per bulan). Dibaca sebagai pengaruh tambahan di luar pola minggu lalu.
 
 Seri tanpa riwayat → `model: null`, `forecast: []`, peringatan "Belum ada data penjualan.". `predicted`,
 `lower`, `upper` dibulatkan 1 desimal dan tidak pernah negatif. Waktu hitung lokal (data simulasi):
@@ -282,33 +290,36 @@ tanggal besok (WIB) dari hasil ini.
 
 | Kode | Model | Cara kerja |
 |---|---|---|
-| `ma7` | Rata-rata bergerak | Rata-rata 7 hari tercatat terakhir |
-| `snaive` | Seasonal naive | Nilai hari yang sama minggu lalu; jika tidak ada → 2 minggu lalu; jika tidak ada → `ma7` |
-| `ridge` | Ridge regression (numpy, setara scikit-learn `StandardScaler` + `Ridge`; D-25), `alpha` = 1 | Fitur (`forecasting/features.py`): one-hot hari dalam seminggu (7), one-hot **awal bulan** tgl 1–5 dan 6–10 (2), one-hot penanda hari (4), lag-7 (kosong → rata-rata minggu lalu), **rata-rata minggu lalu** (d−13…d−7), indeks tren (bulan sejak data pertama). Fitur distandarkan. < 14 baris latih → memakai `ma7` |
+| `ridge` | **Model utama (D-33).** Ridge regression (numpy, setara scikit-learn `StandardScaler` + `Ridge`; D-25), `alpha` dipilih per kategori dari 1 / 3 / 10 / 30 / 100 | Fitur (`forecasting/features.py`): one-hot hari dalam seminggu (7), one-hot **awal bulan** tgl 1–5 dan 6–10 (2), one-hot penanda hari (4), lag-7 (kosong → rata-rata minggu lalu), **rata-rata minggu lalu** (d−13…d−7), indeks tren (bulan sejak data pertama). Fitur distandarkan. < 14 baris latih → memakai `ma7` |
+| `ma7` | Rata-rata 7 hari tercatat terakhir | **Cadangan** saat data < 28 hari, dan **pembanding** (`baseline_error_pct`) |
+
+> `snaive` (pola minggu lalu) dihapus di D-33; hanya muncul di hasil lama sebelum 25 Okt.
 
 Semua fitur hanya memakai nilai ≤ d−7, jadi satu model berlaku untuk horizon 1–7 tanpa prediksi rekursif
 (prediksi tidak memakai prediksi). Hari tutup tidak ada di riwayat; lag dan rata-rata hanya memakai hari tercatat.
 Hari stok habis tetap dipakai melatih apa adanya (D-30).
 
-### 6.3 Pemilihan Model (per menu)
+### 6.3 Model per kategori (D-33)
 
-| Jumlah hari data | Model yang dibandingkan |
+| Jumlah hari data | Model dipakai |
 |---|---|
-| < 7 | Hanya `ma7` + peringatan "data sangat sedikit" |
-| 7–27 | `ma7`, `snaive` (backtest jika ≥ 14 hari) |
-| ≥ 28 | `ma7`, `snaive`, `ridge` |
+| < 7 | `ma7` + peringatan "data sangat sedikit" |
+| 7–27 | `ma7` + peringatan "data belum cukup untuk machine learning (perlu 28 hari)"; akurasi diuji mulai 14 hari |
+| ≥ 28 | `ridge`; `alpha` = WAPE backtest terkecil (seri → alpha lebih kecil). `ma7` tetap diuji sebagai pembanding |
 
 Backtest: rolling origin pada hingga 14 titik asal terakhir (tanggal tercatat, kecuali yang paling akhir),
 horizon 1…`horizon` request; hanya tanggal yang tercatat yang dinilai. Metrik **WAPE**
 = Σ|aktual − prediksi| / Σ aktual × 100, ditampilkan sebagai "error rata-rata" (D-10).
-Model dengan WAPE terkecil dipilih; jika selisih < 1 poin, pilih model yang lebih sederhana.
+Backtest Ridge semua alpha dihitung sekaligus (`ridge_backtest_pairs`): fitur dihitung sekali, standarisasi & Gram sekali
+per titik asal; hasilnya identik dengan fit ulang per titik asal (dites, toleransi 1e-8). Catatan: alpha dipilih dari
+backtest yang sama dengan yang dilaporkan, jadi `error_pct` Ridge sedikit optimis.
 
 > Ambang 7 / 14 / 28 hari adalah asumsi awal dan boleh disesuaikan setelah melihat data nyata
 > (catat sebagai keputusan baru).
 
 ### 6.4 Rentang Prediksi
 
-Kuantil 10% dan 90% dari residual backtest model terpilih, ditambahkan ke prediksi, minimal 0.
+Kuantil 10% dan 90% dari residual backtest model yang dipakai (Ridge: alpha terpilih), ditambahkan ke prediksi, minimal 0.
 Jika residual < 10 titik, `lower` dan `upper` = `null` dan UI tidak menampilkan rentang.
 
 ### 6.5 Peringatan per seri
@@ -316,7 +327,8 @@ Jika residual < 10 titik, `lower` dan `upper` = `null` dan UI tidak menampilkan 
 | Kondisi | Teks |
 |---|---|
 | < 7 hari data | "Data sangat sedikit (< 7 hari); prediksi memakai rata-rata sederhana." |
-| 7–13 hari | "Akurasi belum bisa diuji (< 14 hari data)." |
+| 7–27 hari (`ma7`) | "Data belum cukup untuk machine learning (perlu 28 hari); sementara memakai rata-rata 7 hari." |
+| < 14 hari | "Akurasi belum bisa diuji (< 14 hari data)." |
 | Ada `censored_dates` | "Ada N hari stok habis; penjualan hari itu bisa lebih rendah dari permintaan, jadi prediksi bisa sedikit rendah." |
 
 > **Catatan akurasi (data simulasi, 4 seed × 150 hari, 30 titik asal, horizon 5, vs permintaan sebenarnya):**
@@ -454,6 +466,7 @@ project Supabase juga di Singapura agar server dan database berdekatan.
 | D-28 | 24 Okt 2026 | **Potong per kg dan stok freezer per bahan**, bukan global: `ingredients.pieces_per_kg` (wajib jika dibeli per kg) dan `daily_stock.ingredient_id`. Setelan global `pieces_per_kg` dihapus (0003) | Diusulkan saat review: jika kelak ada menu paha/sayap, satu angka global membuat rekomendasi kg salah tanpa peringatan. Dibuat sebelum ada data stok dan sebelum form stok (K4), jadi hampir tanpa biaya. Warung yang hanya memakai dada tetap melihat satu baris | Berlaku |
 | D-29 | 24 Okt 2026 | Stok dicatat sesuai yang penjual tahu: **belanja** (kg + jumlah potong opsional, bisa disimpan kapan saja) dan **sisa masuk freezer** saat tutup; sistem menghitung tersedia → sisa seharusnya (dari rekap × resep) → **selisih** ("tidak tercatat: food waste, dipakai sendiri, atau salah hitung rekap"). Potong/kg pengaturan jadi perkiraan cadangan; rekomendasi memakai rata-rata 14 hari. Warung tutup tidak menghapus stok. Hanya ayam (bahan dibeli per kg); bahan lain di luar scope | Klien menghitung "dari habisnya bahan" dan tidak menghitung potong yang disiapkan. Ukuran ayam berubah tiap hari (1 kg bisa 8–10 potong), jadi angka tetap di pengaturan memicu selisih palsu; jumlah potong asli opsional agar belanja tetap tercatat walau tidak dihitung. Selisih mengukur indikator sukses klien ("stok ayam") tanpa input tambahan. Diputuskan bersama Fillian | Berlaku |
 | D-30 | 24 Okt 2026 | Forecast v1 (T-17): fitur Ridge ditambah **awal bulan** (tgl 1–5, 6–10) dan rata-rata minggu lalu; semua fitur ≥ d−7 sehingga horizon 1–7 tanpa rekursi. **Hari stok habis tetap dipakai melatih apa adanya** (tidak dibuang, tidak diimputasi); dikirim sebagai `censored_dates` hanya untuk peringatan | Klien: "hari rame awal bulan". Soal stok habis diuji pada data simulasi (8 seed × 150 hari, 30 titik asal terakhir, horizon 5, dibandingkan dengan **permintaan sebenarnya**): total porsi ayam Ridge WAPE 14,9% (apa adanya) vs 15,3% (buang hari habis) vs 14,9% (imputasi); pipeline lengkap 15,5% vs 15,5% (imputasi). Geprek bakar: 17,8% vs 17,7%. Membuang hari habis **lebih buruk** karena hari habis justru hari ramai (usulan awal dibatalkan); imputasi hanya membantu tipis dan tidak konsisten, jadi tidak sebanding dengan kerumitannya. Semua cara masih kurang ±2 porsi/hari; diatasi lewat cadangan % di rekomendasi. Angka ini dari simulasi, ulangi setelah data asli ±4 minggu | Berlaku |
+| D-33 | 25 Okt 2026 | **Ridge jadi model utama** untuk setiap kategori dengan ≥ 28 hari data; `alpha` dipilih per kategori lewat backtest (1/3/10/30/100). `ma7` hanya cadangan (< 28 hari) dan pembanding yang ditampilkan ("cara biasa"). `snaive` dan aturan "seri < 1 poin → model sederhana" dihapus. Response menambah `baseline_error_pct`, `alpha`, `factors`; halaman Prediksi menampilkan "Faktor yang dipelajari" (|pengaruh| ≥ maks(0,5 porsi, 5% rata-rata prediksi)) | Klien meminta machine learning yang belajar dari pola historis (hari, tanggal, kondisi); aturan lama sering memilih rata-rata 7 hari sehingga ML "tidak terlihat". Uji di simulasi 120 hari: dengan alpha per kategori, Ridge ≤ rata-rata 7 hari di 10/12 kategori (mis. geprek bakar 18,8% vs 18,9%, spesial 53,3% vs 74,6%); kalah tipis di lele 49,0% vs 44,9% dan bakso 47,0% vs 45,6% (non-ayam, ±0,15 porsi/hari). Diputuskan Fillian | Berlaku; mengganti bagian pemilihan model D-10 (metrik WAPE tetap) |
 | D-32 | 25 Okt 2026 | Mode tampilan demo/live (T-25) lewat cookie per browser, **tanpa PIN** (hanya pilihan tampilan, tidak menulis database); default otomatis `live` bila rekap warung ≥ 14 hari, selain itu `demo`. Beranda/Prediksi/Bahan jadi `force-dynamic` (membaca cookie + database). Label Simulasi pindah dari kerangka aplikasi ke kartu mode di tiap halaman (Waste tetap berlabel Simulasi) | Data warung belum terkumpul (rekap belum mulai, kasir Ketoko belum dipakai); demo 4 Nov perlu tampilan lengkap yang jujur berlabel. 14 hari = ambang uji akurasi (§6.3). Menggantikan rencana "default live + tawarkan demo". Konsekuensi: halaman ini tidak lagi ISR (D-19), jadi sedikit lebih lambat dibuka | Berlaku |
 | D-31 | 25 Okt 2026 | Integrasi forecast (T-18): dihitung **langsung di action simpan rekap** (ditunggu, bukan latar belakang); horizon **7**; ringkasan per kategori (model, error, hari data, peringatan) di `forecast_runs.summary` tanpa migrasi; run disimpan 30 hari; gagal = run `failed` + pesan, rekap tidak terpengaruh; `FORECAST_URL` di Vercel boleh kosong (pakai domain produksi) | Ditunggu: hasil/pesan gagal langsung terlihat dan pasti selesai (proses latar belakang bisa terpotong saat halaman ditutup); biaya ±1 dtk per simpan. Horizon 7 = besok + seminggu untuk Beranda/Bahan; waktu hitung tetap ±1 dtk. Skema 0001 sudah punya `summary jsonb`, jadi tidak perlu migrasi baru. Domain produksi dipakai karena URL deployment bisa diproteksi Vercel | Berlaku |
 

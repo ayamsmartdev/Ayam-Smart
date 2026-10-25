@@ -231,7 +231,7 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 
 > Snapshot kondisi proyek SEKARANG. Update setiap akhir sesi. Harus tetap benar jika dibaca tanpa konteks chat.
 
-**Terakhir diupdate:** 25 Oktober 2026 (sprint T-19 + T-20 + T-25 file siap, D-32)
+**Terakhir diupdate:** 25 Oktober 2026 (D-33 Ridge model utama, file siap)
 
 - **Sudah data nyata (dataset `live`, Supabase region Singapura):**
   - `/rekap` — rekap harian semua menu aktif (termasuk 0), mode warung tutup, pilih tanggal s.d. 30 hari lalu.
@@ -242,8 +242,8 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   **Data warung** (`live`): otomatis `live` jika rekap ≥ 14 hari, selain itu `demo`; pilihan per browser via cookie.
 - **Masih simulasi lama** (`src/lib/demo-data.ts` + `preview-forecast.ts`, berlabel Simulasi): Waste (simpan waste belum
   ke DB), Import (baru unduh template).
-- **Python forecast:** `api/forecast.py` sudah kontrak asli §6.1 (T-17, D-30): ma7 / snaive / ridge, backtest WAPE,
-  rentang 10–90%, peringatan; `GET` = cek kesehatan. Teruji di Vercel (12 seri ±0,9 dtk). 78 tes pytest
+- **Python forecast:** `api/forecast.py` kontrak §6.1 (T-17, D-30, D-33): **Ridge model utama** (≥ 28 hari, alpha per
+  kategori lewat backtest), ma7 hanya cadangan & pembanding, faktor yang dipelajari, rentang 10–90%; `GET` = cek kesehatan. Teruji di Vercel (12 seri ±0,9 dtk). 85 tes pytest
   (`py -3.12 -m pytest`). Contoh request: `py -3.12 scripts/forecast_demo_request.py` → `scripts/out/`.
 - **Rekap per kategori + stok ayam** (D-26–D-29): 12 kategori live (diisi lewat SQL sekali pakai, di luar repo).
   Stok = belanja (kg + potong opsional, kapan saja) + sisa saat tutup → selisih; logika di `src/lib/stock.ts`.
@@ -261,7 +261,7 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   Halaman pratinjau ISR 60 dtk + FreshnessGuard (D-19); halaman DB `force-dynamic`. Env di Vercel: `SUPABASE_URL`,
   `SUPABASE_SECRET_KEY`, `APP_PIN`, `SESSION_SECRET`, `FORECAST_SECRET`.
 - **Lokal:** Python 3.12.10 terpasang (dipanggil `py -3.12`; `python` default = 3.15, jangan dipakai).
-- **Berikutnya:** uji & push sprint T-19/T-20/T-25 → T-21 food waste ke DB atau T-23 importer Ketoko (bila contoh ada) →
+- **Berikutnya:** uji & push D-33 (lalu Hitung ulang prediksi demo) → T-21 food waste ke DB atau T-23 importer Ketoko (bila contoh ada) →
   T-33 data demo final (`--end` sehari sebelum demo). Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
   (keduanya login via GitHub `ayamsmartdev`). 2FA belum diaktifkan (T-02).

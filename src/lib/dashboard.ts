@@ -29,7 +29,18 @@ export type StoredForecast = {
     createdAt: string;
     startDate: string;
     horizon: number;
-    menus: Record<string, { model: string | null; error_pct: number | null; data_days: number; warnings: string[] }>;
+    menus: Record<
+      string,
+      {
+        model: string | null;
+        error_pct: number | null;
+        data_days: number;
+        warnings: string[];
+        baseline_error_pct?: number | null;
+        alpha?: number | null;
+        factors?: { key: string; effect: number }[];
+      }
+    >;
     points: (ForecastPoint & { menuId: string })[];
   } | null;
 };
@@ -54,6 +65,9 @@ export type CategoryView = {
   last7: number;
   model: string | null;
   errorPct: number | null;
+  /** Error rata-rata 7 hari sebagai pembanding (null jika belum diuji / run lama). */
+  baselineErrorPct: number | null;
+  factors: { key: string; effect: number }[];
   dataDays: number;
   warnings: string[];
   points: ForecastPoint[];
@@ -126,6 +140,8 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
       last7: sum(window7.map((d) => byDateMenu.get(d)?.[m.id] ?? 0)),
       model: summary?.model ?? null,
       errorPct: summary?.error_pct ?? null,
+      baselineErrorPct: summary?.baseline_error_pct ?? null,
+      factors: summary?.factors ?? [],
       dataDays: summary?.data_days ?? 0,
       warnings: summary?.warnings ?? [],
       points: points
@@ -271,7 +287,34 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
 /** Nama model untuk ditampilkan (§6.2). */
 export function modelLabel(model: string | null): string {
   if (model === "ridge") return "Ridge regression (machine learning)";
-  if (model === "snaive") return "Pola minggu lalu";
-  if (model === "ma7") return "Rata-rata 7 hari";
+  if (model === "ma7") return "Rata-rata 7 hari (data belum cukup untuk machine learning)";
+  if (model === "snaive") return "Pola minggu lalu"; // hanya di hasil lama sebelum D-33
   return "Belum ada";
+}
+
+const DAY_NAMES = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+const FACTOR_LABELS: Record<string, string> = {
+  tgl_1_5: "Tanggal 1–5 (awal bulan)",
+  tgl_6_10: "Tanggal 6–10",
+  tag_ramai: "Hari ditandai ramai",
+  tag_sepi: "Hari ditandai sepi",
+  tag_libur: "Hari libur",
+  tag_gajian: "Hari gajian",
+  tren: "Tren",
+};
+
+/** Nama faktor Ridge (§6.2) untuk ditampilkan; hari_0 = Senin (weekday Python). */
+export function factorLabel(key: string): string {
+  const day = /^hari_([0-6])$/.exec(key);
+  if (day) return DAY_NAMES[Number(day[1])];
+  return FACTOR_LABELS[key] ?? key;
+}
+
+/**
+ * Faktor yang cukup menonjol untuk ditampilkan: |pengaruh| ≥ max(0,5 porsi, 5% rata-rata prediksi),
+ * urut dari yang terbesar. Faktor kecil di bawah ambang lebih mungkin kebetulan daripada pola.
+ */
+export function notableFactors(factors: { key: string; effect: number }[], avgPredicted: number) {
+  const min = Math.max(0.5, 0.05 * avgPredicted);
+  return factors.filter((f) => Math.abs(f.effect) >= min).sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
 }

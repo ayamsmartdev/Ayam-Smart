@@ -10,20 +10,19 @@ Kesetaraannya dibuktikan di tests/test_models.py (dibandingkan dengan scikit-lea
 
 Peramal (forecaster) — semua menerima riwayat yang SUDAH dipotong sampai titik asal
 (`origin`) dan daftar tanggal target (origin+1 … origin+h, h ≤ 7):
-- `ma7`    : rata-rata 7 hari tercatat terakhir
-- `snaive` : nilai hari yang sama minggu lalu (atau 2 minggu lalu); jika tidak ada → ma7
-- `ridge`  : Ridge pada fitur `forecasting.features`
+- `ridge` : model utama (D-33) — Ridge pada fitur `forecasting.features`, alpha dipilih per kategori
+- `ma7`   : rata-rata 7 hari tercatat terakhir; hanya saat data belum cukup (< 28 hari) dan sebagai pembanding
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from forecasting.features import Series, feature_row
+from forecasting.features import FEATURE_NAMES, Series, feature_row
 
 FloatArray = NDArray[np.float64]
 
@@ -80,9 +79,9 @@ def _as_matrix(features: ArrayLike) -> FloatArray:
 
 
 # ── Peramal ─────────────────────────────────────────────────────────────────
-#: Urutan dari yang paling sederhana; dipakai sebagai pemecah seri (D-10).
-MODEL_ORDER = ("ma7", "snaive", "ridge")
-RIDGE_ALPHA = 1.0
+#: Pilihan regularisasi Ridge; dipilih per kategori lewat backtest (D-33).
+#: Kecil = boleh mengikuti pola rinci (kategori besar); besar = lebih "hati-hati" (kategori kecil yang acak).
+RIDGE_ALPHAS = (1.0, 3.0, 10.0, 30.0, 100.0)
 #: Minimal baris latih Ridge; kurang dari ini Ridge memakai ma7.
 RIDGE_MIN_ROWS = 14
 
@@ -101,36 +100,32 @@ def forecast_ma7(series: Series, targets: list[date]) -> list[float]:
     return _clip([ma7_value(series)] * len(targets))
 
 
-def forecast_snaive(series: Series, targets: list[date]) -> list[float]:
-    fallback = ma7_value(series)
-    out = []
-    for d in targets:
-        value = fallback
-        for weeks in (1, 2):
-            past = d - timedelta(days=7 * weeks)
-            if past in series.values:
-                value = series.values[past]
-                break
-        out.append(value)
-    return _clip(out)
-
-
-def forecast_ridge(series: Series, targets: list[date]) -> list[float]:
+def ridge_training(series: Series) -> tuple[FloatArray, FloatArray] | None:
+    """Matriks fitur & target latih Ridge; None jika baris latih < RIDGE_MIN_ROWS."""
     dates = series.dates
     if not dates:
-        return [0.0] * len(targets)
-    start = dates[0]
+        return None
     rows, ys = [], []
     for d in dates:
-        x = feature_row(series, d, start)
+        x = feature_row(series, d, dates[0])
         if x is not None:
             rows.append(x)
             ys.append(series.values[d])
     if len(rows) < RIDGE_MIN_ROWS:
+        return None
+    return np.vstack(rows), np.array(ys, dtype=np.float64)
+
+
+def forecast_ridge(
+    series: Series, targets: list[date], alpha: float = 1.0
+) -> list[float]:
+    data = ridge_training(series)
+    if data is None:
         return forecast_ma7(series, targets)
-    model = fit_ridge(np.vstack(rows), np.array(ys), alpha=RIDGE_ALPHA)
-    preds = []
+    model = fit_ridge(data[0], data[1], alpha=alpha)
+    start = series.dates[0]
     fallback = ma7_value(series)
+    preds = []
     for d in targets:
         x = feature_row(series, d, start)
         preds.append(fallback if x is None else float(model.predict(x[None, :])[0]))
@@ -140,8 +135,32 @@ def forecast_ridge(series: Series, targets: list[date]) -> list[float]:
 def forecast(name: str, series: Series, targets: list[date]) -> list[float]:
     if name == "ma7":
         return forecast_ma7(series, targets)
-    if name == "snaive":
-        return forecast_snaive(series, targets)
     if name == "ridge":
         return forecast_ridge(series, targets)
     raise ValueError(f"Model tidak dikenal: {name}")
+
+
+def ridge_factors(model: RidgeModel, x_train: FloatArray) -> list[dict]:
+    """
+    Pengaruh tiap faktor menurut Ridge, dalam porsi (D-33). Dibaca sebagai pengaruh TAMBAHAN di luar
+    pola minggu lalu (lag-7 & rata-rata minggu lalu juga fitur).
+    - hari_0…hari_6 (Senin…Minggu): selisih terhadap rata-rata ketujuh hari.
+    - tgl_1_5, tgl_6_10, tag_*: tambahan porsi saat kondisi itu berlaku (tag hanya jika pernah muncul).
+    - tren: perubahan porsi per bulan.
+    """
+    raw = dict(zip(FEATURE_NAMES, model.coef / model.scale, strict=True))
+    present = dict(
+        zip(FEATURE_NAMES, (x_train.max(axis=0) > x_train.min(axis=0)), strict=True)
+    )
+    out: list[dict] = []
+    days = [f"hari_{i}" for i in range(7)]
+    mean_day = sum(raw[k] for k in days) / 7
+    out += [
+        {"key": k, "effect": round(float(raw[k] - mean_day), 1)}
+        for k in days
+        if present[k]
+    ]
+    for k in FEATURE_NAMES:
+        if (k.startswith(("tgl_", "tag_")) or k == "tren") and present[k]:
+            out.append({"key": k, "effect": round(float(raw[k]), 1)})
+    return out

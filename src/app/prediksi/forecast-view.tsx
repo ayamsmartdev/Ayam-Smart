@@ -13,11 +13,20 @@ export type ForecastOption = {
   name: string;
   points: Point[];
   modelText: string;
+  isRidge?: boolean;
   /** WAPE backtest (%); null jika belum bisa diuji. */
   errorPct: number | null;
+  /** WAPE rata-rata 7 hari sebagai pembanding. */
+  baselineErrorPct: number | null;
+  /** Faktor menonjol yang dipelajari Ridge (sudah difilter & diurutkan). */
+  factors: { label: string; effect: number; perMonth: boolean }[];
+  /** Ridge melaporkan faktor (hasil sesudah D-33). */
+  hasFactors?: boolean;
   dataDays: number;
   warnings: string[];
 };
+
+const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatNumber(Math.abs(v), 0, 1)}`;
 
 export function ForecastView({ options, today }: { options: ForecastOption[]; today: string }) {
   const [selected, setSelected] = useState(options[0].id);
@@ -105,14 +114,15 @@ export function ForecastView({ options, today }: { options: ForecastOption[]; to
       <Panel aria-labelledby="method-title">
         <PanelTitle id="method-title">Cara angka ini dihitung</PanelTitle>
         <p className="mt-2 max-w-prose text-[15px] leading-relaxed text-ink-soft">
-          Setiap kategori dihitung dengan tiga model: rata-rata 7 hari, pola minggu lalu, dan Ridge regression
-          (machine learning dengan pola hari, awal bulan, dan tren). Ketiganya diuji ke data 14 hari terakhir,
-          lalu yang errornya paling kecil dipakai. Kisaran: saat diuji, kira-kira 8 dari 10 hari angka aslinya jatuh di
-          rentang ini.
+          Model utama: <strong>Ridge regression</strong> (machine learning). Untuk tiap kategori, model belajar dari
+          riwayat penjualan seberapa besar pengaruh hari dalam minggu, awal bulan, penanda hari (gajian, libur, ramai),
+          penjualan minggu lalu, dan tren. Tingkat kehati-hatiannya dipilih otomatis lewat uji ke 14 hari terakhir,
+          lalu hasilnya dibandingkan dengan cara biasa (rata-rata 7 hari). Kalau data belum 28 hari, sementara memakai
+          rata-rata 7 hari. Kisaran: saat diuji, kira-kira 8 dari 10 hari angka aslinya jatuh di rentang ini.
         </p>
         <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="col-span-2 rounded-row bg-white/55 p-3 sm:col-span-1">
-            <dt className="text-[13px] text-ink-soft">Model terpilih</dt>
+            <dt className="text-[13px] text-ink-soft">Model yang dipakai</dt>
             <dd className="mt-1 text-[16px] font-bold leading-snug">{current.modelText}</dd>
           </div>
           <div className="rounded-row bg-white/55 p-3">
@@ -120,6 +130,11 @@ export function ForecastView({ options, today }: { options: ForecastOption[]; to
             <dd className="mt-1 text-[22px] font-bold tabular-nums">
               {current.errorPct === null ? "Belum ada" : formatPercent(current.errorPct)}
             </dd>
+            {current.isRidge && current.baselineErrorPct !== null ? (
+              <dd className="mt-0.5 text-[12px] text-ink-soft tabular-nums">
+                Cara biasa (rata-rata 7 hari): {formatPercent(current.baselineErrorPct)}
+              </dd>
+            ) : null}
           </div>
           <div className="rounded-row bg-white/55 p-3">
             <dt className="text-[13px] text-ink-soft">Data yang dipakai</dt>
@@ -129,6 +144,36 @@ export function ForecastView({ options, today }: { options: ForecastOption[]; to
             </dd>
           </div>
         </dl>
+        {current.isRidge && current.hasFactors ? (
+          <div className="mt-4">
+            <h3 className="text-[15px] font-semibold">Faktor yang dipelajari</h3>
+            {current.factors.length > 0 ? (
+              <ul className="mt-2 divide-y divide-line/70 rounded-row bg-white/55">
+                {current.factors.map((f) => (
+                  <li key={f.label} className="flex items-center justify-between gap-3 px-3 py-2 text-[14px]">
+                    <span>{f.label}</span>
+                    <span
+                      className={cn(
+                        "font-semibold tabular-nums",
+                        f.effect > 0 ? "text-daun-600" : "text-sambal-700",
+                      )}
+                    >
+                      {signed(f.effect)} porsi{f.perMonth ? "/bulan" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1 text-[14px] text-ink-soft">
+                Belum ada faktor yang menonjol; prediksi terutama mengikuti pola penjualan minggu lalu.
+              </p>
+            )}
+            <p className="mt-2 text-[12px] leading-relaxed text-ink-soft">
+              Perkiraan pengaruh menurut model, di luar pola penjualan minggu lalu. Hanya faktor yang cukup besar yang
+              ditampilkan; makin banyak data asli, makin bisa dipercaya.
+            </p>
+          </div>
+        ) : null}
         {current.warnings.length > 0 ? (
           <ul className="mt-3 space-y-1 text-[13px] font-medium text-kriuk-700">
             {current.warnings.map((w) => (

@@ -24,7 +24,16 @@ export type ForecastOutcome =
   | { ok: false; error: string };
 
 /** Ringkasan per kategori, disimpan di `forecast_runs.summary.menus`. */
-export type MenuSummary = { model: string | null; error_pct: number | null; data_days: number; warnings: string[] };
+export type MenuSummary = {
+  model: string | null;
+  error_pct: number | null;
+  data_days: number;
+  warnings: string[];
+  /** Mulai D-33; run lama tidak punya. */
+  baseline_error_pct?: number | null;
+  alpha?: number | null;
+  factors?: { key: string; effect: number }[];
+};
 
 const TIMEOUT_MS = 20_000;
 const KEEP_RUNS_DAYS = 30;
@@ -149,7 +158,15 @@ async function saveRun(
   const menus: Record<string, MenuSummary> = Object.fromEntries(
     results.map((r) => [
       r.menuId,
-      { model: r.model, error_pct: r.errorPct, data_days: r.dataDays, warnings: r.warnings },
+      {
+        model: r.model,
+        error_pct: r.errorPct,
+        data_days: r.dataDays,
+        warnings: r.warnings,
+        baseline_error_pct: r.baselineErrorPct,
+        alpha: r.alpha,
+        factors: r.factors,
+      },
     ]),
   );
   const run = await supabase

@@ -1,12 +1,11 @@
 """
-Orkestrasi forecast satu seri (ARCHITECTURE §6.3–6.4).
+Orkestrasi forecast satu seri (ARCHITECTURE §6.3–6.5, D-33).
 
-Pemilihan model menurut jumlah hari data tercatat:
-  < 7   → ma7 saja + peringatan "data sangat sedikit"
-  7–27  → ma7, snaive (backtest jika ≥ 14 hari)
-  ≥ 28  → ma7, snaive, ridge
-Model dengan WAPE terkecil dipilih; selisih < 1 poin → model yang lebih sederhana.
-Rentang: kuantil 10% & 90% residual backtest model terpilih (butuh ≥ 10 residual).
+Model utama = Ridge regression (machine learning):
+  ≥ 28 hari data → Ridge; alpha (regularisasi) dipilih per kategori = WAPE backtest terkecil
+                   dari RIDGE_ALPHAS. Rata-rata 7 hari hanya dihitung sebagai PEMBANDING.
+  < 28 hari      → rata-rata 7 hari (data belum cukup untuk melatih Ridge) + peringatan.
+Rentang: kuantil 10% & 90% residual backtest model terpakai (butuh ≥ 10 residual).
 """
 
 from __future__ import annotations
@@ -15,68 +14,89 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from forecasting.backtest import backtest_pairs, wape
+from forecasting.backtest import backtest_pairs, ridge_backtest_pairs, wape
 from forecasting.features import Series
-from forecasting.models import MODEL_ORDER, forecast
+from forecasting.models import (
+    RIDGE_ALPHAS,
+    fit_ridge,
+    forecast_ma7,
+    forecast_ridge,
+    ridge_factors,
+    ridge_training,
+)
 
 FEW_DAYS = 7
 BACKTEST_MIN_DAYS = 14
 RIDGE_MIN_DAYS = 28
-TIE_POINTS = 1.0
 MIN_RESIDUALS = 10
 
 
-def candidates(data_days: int) -> tuple[str, ...]:
-    if data_days < FEW_DAYS:
-        return ("ma7",)
-    if data_days < RIDGE_MIN_DAYS:
-        return ("ma7", "snaive")
-    return MODEL_ORDER
-
-
-def choose(scores: dict[str, float | None]) -> str:
-    """Model dengan WAPE terkecil; dalam selisih < 1 poin pilih yang lebih sederhana."""
-    scored = {m: s for m, s in scores.items() if s is not None}
+def choose_alpha(scores: dict[float, float | None]) -> float:
+    """Alpha dengan WAPE terkecil; seri → alpha yang lebih kecil (urutan RIDGE_ALPHAS)."""
+    scored = [(s, a) for a, s in scores.items() if s is not None]
     if not scored:
-        return next(m for m in MODEL_ORDER if m in scores)
-    best = min(scored.values())
-    return next(m for m in MODEL_ORDER if m in scored and scored[m] - best < TIE_POINTS)
+        return RIDGE_ALPHAS[0]
+    best = min(s for s, _ in scored)
+    return next(
+        a for a in RIDGE_ALPHAS if scores.get(a) is not None and scores[a] == best
+    )
 
 
 def forecast_series(series: Series, start_date: date, horizon: int) -> dict:
     """Hasil satu seri sesuai kontrak §6.1 (tanpa `menu_id`)."""
     targets = [start_date + timedelta(days=i) for i in range(horizon)]
     n = len(series.values)
-    warnings: list[str] = []
     if n == 0:
         return {
             "model": None,
             "error_pct": None,
+            "baseline_error_pct": None,
+            "alpha": None,
             "data_days": 0,
             "forecast": [],
+            "factors": [],
             "warnings": ["Belum ada data penjualan."],
         }
 
-    cands = candidates(n)
-    scores: dict[str, float | None] = {m: None for m in cands}
-    pairs_by_model: dict[str, list[tuple[float, float]]] = {}
-    if n >= BACKTEST_MIN_DAYS:
-        for m in cands:
-            pairs_by_model[m] = backtest_pairs(m, series, horizon)
-            scores[m] = wape(pairs_by_model[m])
-    model = choose(scores)
+    baseline_pairs = (
+        backtest_pairs("ma7", series, horizon) if n >= BACKTEST_MIN_DAYS else []
+    )
+    baseline_error = wape(baseline_pairs)
+    factors: list[dict] = []
+    alpha: float | None = None
 
-    preds = forecast(model, series, targets)
-    residuals = [a - p for a, p in pairs_by_model.get(model, [])]
+    training = ridge_training(series) if n >= RIDGE_MIN_DAYS else None
+    if training is not None:
+        model = "ridge"
+        pairs_by_alpha = ridge_backtest_pairs(series, horizon, RIDGE_ALPHAS)
+        scores = {a: wape(p) for a, p in pairs_by_alpha.items()}
+        alpha = choose_alpha(scores)
+        pairs = pairs_by_alpha[alpha]
+        error = scores[alpha]
+        preds = forecast_ridge(series, targets, alpha)
+        factors = ridge_factors(fit_ridge(*training, alpha=alpha), training[0])
+    else:
+        model = "ma7"
+        pairs = baseline_pairs
+        error = baseline_error
+        preds = forecast_ma7(series, targets)
+
+    residuals = [a - p for a, p in pairs]
     lo_q = hi_q = None
     if len(residuals) >= MIN_RESIDUALS:
         lo_q, hi_q = (float(q) for q in np.quantile(residuals, [0.10, 0.90]))
 
+    warnings: list[str] = []
     if n < FEW_DAYS:
         warnings.append(
             "Data sangat sedikit (< 7 hari); prediksi memakai rata-rata sederhana."
         )
-    elif n < BACKTEST_MIN_DAYS:
+    elif model == "ma7":
+        warnings.append(
+            f"Data belum cukup untuk machine learning (perlu {RIDGE_MIN_DAYS} hari); "
+            "sementara memakai rata-rata 7 hari."
+        )
+    if n < BACKTEST_MIN_DAYS:
         warnings.append("Akurasi belum bisa diuji (< 14 hari data).")
     censored = len(series.censored)
     if censored:
@@ -86,10 +106,13 @@ def forecast_series(series: Series, start_date: date, horizon: int) -> dict:
             "permintaan, jadi prediksi bisa sedikit rendah."
         )
 
-    error = scores.get(model)
     return {
         "model": model,
         "error_pct": None if error is None else round(error, 1),
+        "baseline_error_pct": None
+        if baseline_error is None
+        else round(baseline_error, 1),
+        "alpha": alpha,
         "data_days": n,
         "forecast": [
             {
@@ -100,5 +123,6 @@ def forecast_series(series: Series, start_date: date, horizon: int) -> dict:
             }
             for d, p in zip(targets, preds, strict=True)
         ],
+        "factors": factors,
         "warnings": warnings,
     }

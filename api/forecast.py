@@ -41,7 +41,7 @@ from forecasting.contract import ContractError, handle
 np.linalg.solve(np.eye(2), np.ones(2))
 
 IMPORT_MS = round((time.perf_counter() - _T0) * 1000, 1)
-API_VERSION = "t17"
+API_VERSION = "d33"
 MAX_BODY_BYTES = 1_000_000
 SECRET_HEADER = "X-Forecast-Secret"
 _calls = 0

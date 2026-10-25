@@ -4,7 +4,7 @@ import { ForecastNotice } from "@/components/dataset/forecast-notice";
 import { RecalculateButton } from "@/components/dataset/recalculate-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
-import { modelLabel } from "@/lib/dashboard";
+import { factorLabel, modelLabel, notableFactors } from "@/lib/dashboard";
 import { loadDashboardPage } from "@/lib/data/dashboard";
 import { todayWIB } from "@/lib/date";
 import { LIVE_MIN_DAYS } from "@/lib/dataset";
@@ -34,18 +34,31 @@ export default async function PrediksiPage() {
       points: s.totalPoints.filter((p) => visible(p.date)).map((p) => ({ ...p, lower: null, upper: null })),
       modelText: "Jumlah prediksi semua kategori",
       errorPct: null,
+      baselineErrorPct: null,
+      factors: [],
       dataDays: Math.max(0, ...s.categories.map((c) => c.dataDays)),
       warnings: [],
     },
-    ...s.categories.map((c) => ({
-      id: c.id,
-      name: c.name,
-      points: c.points.filter((p) => visible(p.date)),
-      modelText: modelLabel(c.model),
-      errorPct: c.errorPct,
-      dataDays: c.dataDays,
-      warnings: c.warnings,
-    })),
+    ...s.categories.map((c) => {
+      const avg = c.points.length ? c.points.reduce((a, p) => a + p.predicted, 0) / c.points.length : 0;
+      return {
+        id: c.id,
+        name: c.name,
+        points: c.points.filter((p) => visible(p.date)),
+        modelText: modelLabel(c.model),
+        isRidge: c.model === "ridge",
+        errorPct: c.errorPct,
+        baselineErrorPct: c.baselineErrorPct,
+        factors: notableFactors(c.factors, avg).map((f) => ({
+          label: factorLabel(f.key),
+          effect: f.effect,
+          perMonth: f.key === "tren",
+        })),
+        dataDays: c.dataDays,
+        warnings: c.warnings,
+        hasFactors: c.factors.length > 0,
+      };
+    }),
   ];
 
   return (

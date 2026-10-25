@@ -1,15 +1,15 @@
-"""Tes pipeline forecast: fitur, peramal, backtest, pemilihan model, rentang, kontrak (T-17)."""
+"""Tes pipeline forecast: fitur, peramal, backtest, Ridge utama + alpha, rentang, faktor, kontrak (T-17, D-33)."""
 
 from datetime import date, timedelta
 
 import numpy as np
 import pytest
 
-from forecasting.backtest import backtest_pairs, origins_for, wape
+from forecasting.backtest import backtest_pairs, origins_for, ridge_backtest_pairs, wape
 from forecasting.contract import MAX_HISTORY, ContractError, handle, parse_request
 from forecasting.features import FEATURE_NAMES, Series, feature_row
-from forecasting.models import forecast, forecast_ma7, forecast_ridge, forecast_snaive
-from forecasting.run import candidates, choose, forecast_series
+from forecasting.models import RIDGE_ALPHAS, forecast, forecast_ma7, forecast_ridge
+from forecasting.run import choose_alpha, forecast_series
 from scripts.forecast_demo_request import build_request
 
 D0 = date(2026, 6, 1)  # Senin
@@ -70,16 +70,11 @@ def test_fitur_lag7_kosong_memakai_rata_minggu_lalu_dan_none_jika_minggu_lalu_ko
 
 
 # ── peramal ─────────────────────────────────────────────────────────────────
-def test_ma7_dan_snaive():
+def test_ma7():
     s = make_series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
     targets = [D0 + timedelta(days=14 + i) for i in range(3)]
     assert forecast_ma7(s, targets) == [11.0] * 3
-    assert forecast_snaive(s, targets) == [8.0, 9.0, 10.0]
-    # Minggu lalu kosong → 2 minggu lalu; dua-duanya kosong → ma7.
-    s2 = make_series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], skip=(7,))
-    assert forecast_snaive(s2, targets[:1]) == [1.0]
-    s3 = make_series([5] * 6 + [7] * 3, start=D0)
-    assert forecast_snaive(s3, [D0 + timedelta(days=30)]) == forecast_ma7(s3, [D0])
+    assert forecast_ma7(Series(values={}), targets[:1]) == [0.0]
 
 
 def test_ridge_menangkap_pola_mingguan_dan_awal_bulan():
@@ -108,7 +103,7 @@ def test_ridge_kurang_data_memakai_ma7_dan_tidak_pernah_negatif():
     assert (
         min(
             forecast(m, falling, [D0 + timedelta(days=40 + i) for i in range(7)])[0]
-            for m in ("ma7", "snaive", "ridge")
+            for m in ("ma7", "ridge")
         )
         >= 0
     )
@@ -131,9 +126,9 @@ def test_backtest_tidak_mengintip_masa_depan():
     s = make_series(vals)
     origins = origins_for(s)
     assert len(origins) == 14 and origins[-1] == D0 + timedelta(days=38)
-    pairs = backtest_pairs("snaive", s, horizon=1)
-    # snaive h=1: prediksi = nilai 7 hari sebelum target → selalu aktual − 7.
-    assert pairs and all(a - p == 7 for a, p in pairs)
+    pairs = backtest_pairs("ma7", s, horizon=1)
+    # ma7 h=1 pada deret naik 1/hari: rata-rata 7 hari sebelum target = aktual − 4.
+    assert pairs and all(a - p == 4 for a, p in pairs)
 
 
 def test_backtest_melewati_hari_tutup():
@@ -143,27 +138,94 @@ def test_backtest_melewati_hari_tutup():
     assert 25.0 not in actuals and 26.0 not in actuals
 
 
-# ── pemilihan model ─────────────────────────────────────────────────────────
+# ── Ridge utama + alpha (D-33) ──────────────────────────────────────────────
+def _pattern(n, seed=1, noise=1.0):
+    rng = np.random.default_rng(seed)
+    return [
+        30
+        + (12 if d.weekday() >= 5 else 0)
+        + (10 if d.day <= 5 else 0)
+        + rng.normal(0, noise)
+        for d in days(n)
+    ]
+
+
+@pytest.mark.parametrize("alpha", RIDGE_ALPHAS)
+def test_backtest_ridge_cepat_sama_dengan_cara_biasa(alpha):
+    s = make_series(_pattern(60), skip=(40, 41))
+    fast = ridge_backtest_pairs(s, 5, RIDGE_ALPHAS)[alpha]
+    slow = []
+    for origin in origins_for(s):
+        targets = [
+            d
+            for d in (origin + timedelta(days=h) for h in range(1, 6))
+            if d in s.values
+        ]
+        preds = forecast_ridge(s.upto(origin), targets, alpha)
+        slow.extend((s.values[d], p) for d, p in zip(targets, preds, strict=True))
+    assert len(fast) == len(slow) > 0
+    assert np.allclose(np.array(fast), np.array(slow), atol=1e-8)
+
+
+def test_pilih_alpha_wape_terkecil_seri_ke_yang_kecil():
+    assert (
+        choose_alpha({1.0: 20.0, 3.0: 18.0, 10.0: 19.0, 30.0: None, 100.0: 25.0}) == 3.0
+    )
+    assert (
+        choose_alpha({1.0: 18.0, 3.0: 18.0, 10.0: 19.0, 30.0: 18.0, 100.0: 25.0}) == 1.0
+    )
+    assert choose_alpha({a: None for a in RIDGE_ALPHAS}) == RIDGE_ALPHAS[0]
+
+
 @pytest.mark.parametrize(
-    ("n", "expected"),
-    [
-        (1, ("ma7",)),
-        (6, ("ma7",)),
-        (7, ("ma7", "snaive")),
-        (27, ("ma7", "snaive")),
-        (28, ("ma7", "snaive", "ridge")),
-    ],
+    ("n", "model"), [(6, "ma7"), (27, "ma7"), (28, "ridge"), (90, "ridge")]
 )
-def test_kandidat_menurut_jumlah_hari(n, expected):
-    assert candidates(n) == expected
+def test_ridge_dipakai_mulai_28_hari(n, model):
+    out = forecast_series(make_series(_pattern(n)), D0 + timedelta(days=n), 3)
+    assert out["model"] == model
+    if model == "ridge":
+        assert out["alpha"] in RIDGE_ALPHAS and out["error_pct"] is not None
+        assert not any(
+            "belum cukup untuk machine learning" in w for w in out["warnings"]
+        )
+    else:
+        assert out["alpha"] is None and out["factors"] == []
+    if 7 <= n < 28:
+        assert any("perlu 28 hari" in w for w in out["warnings"])
 
 
-def test_pilih_wape_terkecil_dan_seri_kurang_1_poin_pilih_yang_sederhana():
-    assert choose({"ma7": 20.0, "snaive": 15.0, "ridge": 12.0}) == "ridge"
-    assert choose({"ma7": 12.5, "snaive": 15.0, "ridge": 12.0}) == "ma7"
-    assert choose({"ma7": 13.0, "snaive": 12.2, "ridge": 12.0}) == "snaive"
-    assert choose({"ma7": None, "snaive": None}) == "ma7"
-    assert choose({"ma7": None, "snaive": 30.0}) == "snaive"
+def test_pembanding_rata_rata_7_hari_ikut_dilaporkan():
+    out = forecast_series(make_series(_pattern(90)), D0 + timedelta(days=90), 7)
+    assert out["model"] == "ridge" and out["baseline_error_pct"] is not None
+    # Pola mingguan + awal bulan kuat: Ridge jauh lebih akurat dari rata-rata biasa.
+    assert out["error_pct"] < out["baseline_error_pct"] - 5
+
+
+def test_faktor_yang_dipelajari_masuk_akal():
+    out = forecast_series(
+        make_series(_pattern(150, noise=0.5)), D0 + timedelta(days=150), 7
+    )
+    f = {x["key"]: x["effect"] for x in out["factors"]}
+    assert set(f) >= {"hari_0", "hari_6", "tgl_1_5", "tgl_6_10", "tren"}
+    assert not any(
+        k.startswith("tag_") for k in f
+    )  # tag tidak pernah muncul → tidak dilaporkan
+    # Akhir pekan (+12) di atas hari kerja, awal bulan (+10) positif, tgl 6–10 kecil.
+    assert f["hari_5"] > 3 and f["hari_6"] > 3 and f["hari_0"] < -1
+    assert f["tgl_1_5"] > 3 and abs(f["tgl_6_10"]) < f["tgl_1_5"]
+    assert (
+        abs(sum(f[f"hari_{i}"] for i in range(7))) < 0.2
+    )  # selisih terhadap rata-rata hari
+
+
+def test_faktor_tag_muncul_jika_ada_di_riwayat():
+    ctx = {D0 + timedelta(days=i): "gajian" for i in range(0, 120, 30)}
+    vals = _pattern(120)
+    for i in range(0, 120, 30):
+        vals[i] += 15
+    out = forecast_series(make_series(vals, context=ctx), D0 + timedelta(days=120), 3)
+    f = {x["key"]: x["effect"] for x in out["factors"]}
+    assert f.get("tag_gajian", 0) > 3
 
 
 def test_seri_kosong():
@@ -184,14 +246,15 @@ def test_data_sedikit_ma7_tanpa_rentang_dan_ada_peringatan():
 
 def test_10_hari_belum_diuji():
     out = forecast_series(make_series([10] * 10), D0 + timedelta(days=10), 3)
-    assert out["error_pct"] is None and "belum bisa diuji" in out["warnings"][0]
+    assert out["error_pct"] is None and out["baseline_error_pct"] is None
+    assert any("belum bisa diuji" in w for w in out["warnings"])
 
 
-def test_pola_mingguan_kuat_memilih_bukan_ma7_dan_rentang_mengapit_prediksi():
+def test_pola_mingguan_kuat_ridge_dan_rentang_mengapit_prediksi():
     rng = np.random.default_rng(3)
     vals = [(60 if d.weekday() >= 5 else 30) + rng.normal(0, 2) for d in days(60)]
     out = forecast_series(make_series(vals), D0 + timedelta(days=60), 7)
-    assert out["model"] in ("snaive", "ridge") and out["error_pct"] < 15
+    assert out["model"] == "ridge" and out["error_pct"] < 15
     for p in out["forecast"]:
         assert p["lower"] is not None and p["lower"] <= p["predicted"] <= p["upper"]
         assert p["lower"] >= 0
@@ -233,6 +296,9 @@ def test_kontrak_valid_dan_bentuk_response():
         "menu_id",
         "model",
         "error_pct",
+        "baseline_error_pct",
+        "alpha",
+        "factors",
         "data_days",
         "forecast",
         "warnings",
@@ -345,7 +411,9 @@ def test_integrasi_data_simulasi_120_hari():
     results = {r["menu_id"]: r for r in out["results"]}
     assert len(results) == 12
     gb = results["Geprek bakar"]
-    assert gb["model"] in ("ma7", "snaive", "ridge") and gb["data_days"] > 100
+    assert (
+        gb["model"] == "ridge" and gb["data_days"] > 100 and gb["alpha"] in RIDGE_ALPHAS
+    )
     assert gb["forecast"][0]["date"] == "2026-11-04"
     # Prediksi geprek bakar masuk akal (data simulasi ±29 porsi/hari, lebih ramai awal bulan).
     assert all(15 <= p["predicted"] <= 50 for p in gb["forecast"])

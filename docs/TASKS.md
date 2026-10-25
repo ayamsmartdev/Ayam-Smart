@@ -85,19 +85,21 @@
     data simulasi, fungsi Python asli): simpan → 84 titik, baca berhalaman > 1000 baris, `censored_dates` hanya kategori ayam,
     fungsi mati / secret salah → pesan + run failed tanpa membatalkan rekap, run > 30 hari dibersihkan, `next build` lolos
   - ✅ diuji Fillian (lokal + production, `live` masih kosong → "Belum ada rekap penjualan") dan di-push `72372b2`
-- [~] T-19 (F) Dashboard v1: kartu ringkasan + grafik historis & prediksi
-  - ✅ file siap (sprint T-19 + T-20 + T-25, D-32): Beranda dari forecast tersimpan (beli kg besok − sisa freezer, grafik 30 hari +
-    prediksi total, 7 hari + selisih stok, kategori terlaris). **Sisa:** uji Fillian, push
+- [x] T-19 (F) Dashboard v1: kartu ringkasan + grafik historis & prediksi
+  - ✅ (sprint T-19 + T-20 + T-25, D-32) Beranda dari forecast tersimpan (beli kg besok − sisa freezer, grafik 30 hari +
+    prediksi total, 7 hari + selisih stok, kategori terlaris). Diuji Fillian lokal + production, di-push `ef795f9`
+- [~] T-19b (F) **Ridge model utama (D-33)**: alpha per kategori, ma7 cadangan + pembanding, faktor yang dipelajari di Prediksi —
+  ✅ file siap (85 tes pytest, e2e). **Sisa:** uji Fillian, push, lalu Hitung ulang prediksi demo
 - [ ] T-1A (F+K) Demo Sprint 1 ke Julius; catat masukan di §Log dan backlog
 
 ## Sprint 2 — Fitur Pelengkap (29 Okt–1 Nov)
 
-- [~] T-20 (F) Halaman rekomendasi bahan baku (besok + 7 hari, potong & kg) — ✅ file siap (sprint T-19), menunggu uji
+- [x] T-20 (F) Halaman rekomendasi bahan baku (besok + 7 hari, potong & kg) — ✅ diuji & di-push `ef795f9`
 - [ ] T-21 (F) Food waste: form, riwayat (ubah/hapus), grafik, tingkat waste di dashboard
 - [ ] T-22 (F) Penanda kondisi hari (termasuk tanggal mendatang) + dipakai di forecast
 - [ ] T-23 (F) Import CSV: template, validasi, pratinjau, upsert
-- [~] T-24 (F) Halaman forecast detail per kategori (model, error, jumlah hari data, peringatan) — ✅ file siap di /prediksi (sprint T-19)
-- [~] T-25 (F) Toggle mode demo/data nyata + label "Simulasi" — ✅ file siap (D-32), menunggu uji
+- [x] T-24 (F) Halaman forecast detail per kategori (model, error, jumlah hari data, peringatan) — ✅ di /prediksi (`ef795f9`; faktor menyusul T-19b)
+- [x] T-25 (F) Toggle mode demo/data nyata + label "Simulasi" — ✅ D-32, diuji & di-push `ef795f9`
 - [~] T-26 (F) Branding: wordmark + logo sementara & palet gradasi biru sudah ada (STYLEGUIDE); **sisa:** logo & HEX final dari klien (Q-07)
 - [ ] T-27 (F+K) Demo Sprint 2 ke Julius; prioritaskan sisa masukan
 
@@ -162,3 +164,4 @@
 - 2026-10-25 — T-17 lolos uji Fillian (lokal + Vercel, hasil identik) dan di-push `8b53fe4`. `FORECAST_SECRET` di Vercel diganti ke nilai `.env.local` komputer rumah (secret lokal dibuat ulang saat setup); env Vercel hanya bisa diubah lewat dashboard + Redeploy. Berikutnya T-18.
 - 2026-10-25 — T-18 file siap (D-31): forecast dihitung saat rekap disimpan + tombol Hitung ulang + kartu Prediksi di `/rekap`. Catatan: `next dev` (16.4) menambahkan blok "nextjs-agent-rules" ke `AGENTS.md`; dimatikan lewat `agentRules: false` di `next.config.ts`.
 - 2026-10-25 — T-18 lolos uji & di-push `72372b2`. Ketoko (kasir klien, desktop) dicek: export .xlsx berbentuk laporan cetak, transaksi masih kosong → T-23 menunggu contoh berisi data; usulan ke Julius: isi "Jenis" item Ketoko = 12 kategori. Sprint T-19 + T-20 + T-25 (+T-24) file siap (D-32): Beranda/Prediksi/Bahan dari forecast tersimpan, mode demo/live otomatis. Pemisahan stok/prediksi dari Rekap ditunda (keputusan Fillian).
+- 2026-10-25 — Sprint T-19/T-20/T-24/T-25 lolos uji lokal + production (pindah halaman sedikit lebih lambat, masih ditoleransi), di-push `ef795f9`. Fillian: "rata-rata 7 hari bukan machine learning" → D-33: Ridge model utama dengan alpha per kategori (Ridge ≤ rata-rata 7 hari di 10/12 kategori simulasi), ma7 hanya cadangan & pembanding, faktor yang dipelajari ditampilkan.

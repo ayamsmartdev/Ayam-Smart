@@ -16,7 +16,7 @@ export default function LainnyaPage() {
             href="/bahan"
             leading={<span className={iconBox}><BasketIcon className="size-5" /></span>}
             title="Bahan yang perlu disiapkan"
-            subtitle="Besok dan 5 hari ke depan"
+            subtitle="Rekomendasi beli 7 hari dan catat stok ayam"
           />
           <ListRow
             href="/pengaturan"

@@ -3,8 +3,9 @@
 > Panduan tampilan dan pola komponen. Tailwind CSS v4 murni, tanpa component library.
 > Terakhir diupdate: 23 Oktober 2026. Keputusan tema: ARCHITECTURE.md D-17.
 >
-> **Palet brand masih SEMENTARA** sampai logo dan kode warna final dari klien (PRD Q-07).
-> Saat datang, cukup ubah token `--color-brand-*` di `src/app/globals.css`.
+> **Logo final dari klien sudah dipakai** (25 Okt, Q-07): ayam berpola sirkuit, warna dari file logo **cyan `#71CDDD`**
+> dan **biru `#158DC5`**. Palet aplikasi (`--color-brand-*`, biru gradasi) **belum** disamakan dengan warna logo;
+> bila disamakan, cukup ubah token di `src/app/globals.css`.
 
 ---
 
@@ -183,7 +184,7 @@ Semua di `src/components/`, ditulis dengan kelas Tailwind biasa dan menerima `cl
 | `useLeaveGuard` | `hooks/use-leave-guard.ts` | Tahan klik link saat ada perubahan belum disimpan → tampilkan `ConfirmDialog`; refresh/tutup tab memakai dialog bawaan browser. Setelah pengguna memilih, pindah dengan `router.push` (bukan `window.location`, yang memicu dialog bawaan lagi) |
 | `RecipeEditor` | `app/pengaturan/recipe-editor.tsx` | Baris 2 tingkat (pilihan bahan selebar penuh, lalu takaran + satuan di dalam input + tombol hapus) agar muat di 360px |
 | Ikon | `icons.tsx` | SVG garis 24px buatan sendiri, `currentColor` |
-| `BrandMark`, `BrandWordmark` | `layout/brand-mark.tsx` | Logo sementara (squircle biru + paha ayam) |
+| `BrandMark`, `BrandWordmark` | `layout/brand-mark.tsx` | Logo klien (ayam sirkuit, tanpa tulisan melengkung) dari `public/brand/ayamsmart-mark.png` + tulisan AYAMSMART. Ikon tab: `src/app/favicon.ico`, `icon.png`, `apple-icon.png` |
 | `AppShell`, `SidebarNav`, `TabBar` | `layout/app-shell.tsx`, `layout/nav.tsx` | Kerangka responsif |
 | `FreshnessGuard` | `layout/freshness-guard.tsx` | Muat ulang sekali bila tanggal halaman ≠ tanggal WIB perangkat |
 | `SalesChart` | `charts/sales-chart.tsx` | Recharts, tanpa animasi |

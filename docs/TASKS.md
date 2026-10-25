@@ -102,7 +102,7 @@
 - [ ] T-23 (F) Import CSV: template, validasi, pratinjau, upsert
 - [x] T-24 (F) Halaman forecast detail per kategori (model, error, jumlah hari data, peringatan) — ✅ di /prediksi (`ef795f9`; faktor menyusul T-19b)
 - [x] T-25 (F) Toggle mode demo/data nyata + label "Simulasi" — ✅ D-32, diuji & di-push `ef795f9`
-- [~] T-26 (F) Branding: wordmark + logo sementara & palet gradasi biru sudah ada (STYLEGUIDE); **sisa:** logo & HEX final dari klien (Q-07)
+- [~] T-26 (F) Branding: **logo klien terpasang** (header, sidebar, favicon/ikon tab, apple-icon; tulisan melengkung dibuang dari ikon agar terbaca di 16–34 px). **Sisa (opsional):** samakan palet aplikasi dengan warna logo (`#71CDDD`, `#158DC5`)
 - [ ] T-27 (F+K) Demo Sprint 2 ke Julius; prioritaskan sisa masukan
 
 ## Sprint 3 — Stabilisasi (2–3 Nov)
@@ -168,3 +168,4 @@
 - 2026-10-25 — T-18 lolos uji & di-push `72372b2`. Ketoko (kasir klien, desktop) dicek: export .xlsx berbentuk laporan cetak, transaksi masih kosong → T-23 menunggu contoh berisi data; usulan ke Julius: isi "Jenis" item Ketoko = 12 kategori. Sprint T-19 + T-20 + T-25 (+T-24) file siap (D-32): Beranda/Prediksi/Bahan dari forecast tersimpan, mode demo/live otomatis. Pemisahan stok/prediksi dari Rekap ditunda (keputusan Fillian).
 - 2026-10-25 — Sprint T-19/T-20/T-24/T-25 lolos uji lokal + production (pindah halaman sedikit lebih lambat, masih ditoleransi), di-push `ef795f9`. Fillian: "rata-rata 7 hari bukan machine learning" → D-33: Ridge model utama dengan alpha per kategori (Ridge ≤ rata-rata 7 hari di 10/12 kategori simulasi), ma7 hanya cadangan & pembanding, faktor yang dipelajari ditampilkan.
 - 2026-10-25 — D-33 (Ridge model utama) lolos uji & di-push `140808e`. D-34 dikerjakan atas usulan Fillian: Rekap hanya porsi, stok ayam di Bahan, prediksi & Hitung ulang di Prediksi.
+- 2026-10-25 — D-34 di-push `584777c`. Logo klien diterima: ikon ayam sirkuit dipisah dari tulisan (segmentasi warna), dipasang di header/sidebar + favicon/ikon tab/apple-icon (T-26).

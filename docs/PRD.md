@@ -167,7 +167,7 @@ Bisa diangkat ke sprint jika disepakati bersama klien:
 | Q-04 | Estimasi pemilik: rata-rata porsi hari biasa vs akhir pekan, hari paling ramai/sepi, hari tutup (untuk kalibrasi simulasi) | Klien | Sebagian: 40–50 porsi ayam/hari; ramai awal bulan, tanggal tua standar, promo online berpengaruh; geprek bakar 60–70%. Pola mingguan & hari tutup belum |
 | Q-05 | Persetujuan PIN; dashboard boleh dilihat tanpa PIN atau ikut dilindungi | Klien | Sebagian (24 Okt): PIN disetujui. Dashboard tanpa PIN belum dijawab (sementara terbuka) |
 | Q-06 | Siapa yang menginput rekap harian, dan kapan | Klien | Terbuka |
-| Q-07 | Logo dan kode warna HEX (sementara pakai palet usulan) | Klien | Terbuka |
+| Q-07 | Logo dan kode warna HEX (sementara pakai palet usulan) | Klien | Logo diterima & dipakai (25 Okt); HEX diambil dari file logo: `#71CDDD`, `#158DC5`. Palet aplikasi belum disamakan |
 | Q-08 | Contoh format export aplikasi kasir yang sedang dibuat | Klien | Terbuka |
 | Q-09 | Buffer stok yang diinginkan (default sementara 10%) | Klien | Terbuka |
 | Q-10 | Info kebijakan penggunaan komersial Vercel Hobby sudah disampaikan; keputusan plan | Klien | Terbuka |

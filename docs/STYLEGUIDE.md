@@ -173,7 +173,7 @@ Semua di `src/components/`, ditulis dengan kelas Tailwind biasa dan menerima `cl
 | `Panel`, `PanelTitle` | `ui/panel.tsx` | `variant="hero"` untuk satu elemen utama per halaman |
 | `Button`, `LinkButton` | `ui/button.tsx` | `primary` (gradasi), `secondary` (putih + ring biru), `danger` (sambal), `dangerSoft` (sambal lembut, untuk aksi berisiko sekunder), `plain` |
 | `Badge`, `SimulasiBadge` | `ui/badge.tsx` | `SimulasiBadge` wajib tampil selama data simulasi |
-| `GroupedList`, `ListRow` | `ui/grouped-list.tsx` | Daftar ala iOS; `href` menambah chevron |
+| `GroupedList`, `ListRow` | `ui/grouped-list.tsx` | Daftar ala iOS; `href` (pindah halaman) atau `onClick` (mis. buka dialog ubah) menambah chevron |
 | `Stepper` | `ui/stepper.tsx` | Tombol bulat 44px + angka yang bisa diketik |
 | `Segmented` | `ui/segmented.tsx` | Pilihan 2–3 opsi |
 | `PageHeader` | `ui/page-header.tsx` | Large title + subjudul |

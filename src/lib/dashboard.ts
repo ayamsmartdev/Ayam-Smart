@@ -3,8 +3,12 @@
  * Murni (tanpa database), dipakai `lib/data/dashboard.ts` dan bisa dites langsung.
  */
 import { addDays } from "@/lib/date";
-import type { Ingredient, RecipeItem as NeedRecipe } from "@/lib/demo-data";
-import { ingredientNeeds, type IngredientNeed } from "@/lib/recommend";
+import {
+  type Ingredient,
+  ingredientNeeds,
+  type IngredientNeed,
+  type RecipeItem as NeedRecipe,
+} from "@/lib/recommend";
 import {
   averagePiecesPerKg,
   computeStockSummary,
@@ -12,6 +16,7 @@ import {
   PIECES_PER_KG_WINDOW_DAYS,
   usedByRecap,
 } from "@/lib/stock";
+import { chickenWasteByDate, chickenWasteSummary, type WasteFact } from "@/lib/waste";
 
 export type ChartPoint = {
   date: string;
@@ -57,6 +62,8 @@ export type DashboardInput = {
   bufferPct: number;
   /** Stok bahan ayam ±21 hari terakhir. */
   stock: { date: string; ingredientId: string; boughtKg: number | null; boughtPieces: number | null; leftover: number | null }[];
+  /** Catatan food waste ±21 hari terakhir (T-21). */
+  waste: WasteFact[];
 };
 
 export type CategoryView = {
@@ -100,7 +107,13 @@ export type DashboardSnapshot = {
     openDays7: number;
     avgPerDay7: number;
     /** Jumlah selisih stok ayam 7 hari (potong tidak tercatat); null jika belum ada hari yang bisa dihitung. */
-    stockDiff: { pieces: number; days: number } | null;
+    /**
+     * Selisih stok ayam 7 hari (D-29): `pieces` = Σ selisih harian, `untracked` = selisih dikurangi waste ayam
+     * yang tercatat di hari-hari itu. Null jika belum ada hari yang bisa dihitung.
+     */
+    stockDiff: { pieces: number; untracked: number; days: number } | null;
+    /** Ayam terbuang tercatat 7 hari s.d. tanggal data terakhir (potong) dan tingkatnya. */
+    waste: { pieces: number; ratePct: number | null };
   };
   bufferPct: number;
 };
@@ -181,6 +194,7 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
   const leftovers: LeftoverInfo[] = [];
   const piecesPerKgUsed = new Map<string, number>();
   let diffPieces = 0;
+  let diffUntracked = 0;
   let diffDays = 0;
   for (const ing of chicken) {
     const rows = stockBy.get(ing.id) ?? new Map();
@@ -202,6 +216,7 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
       ),
     );
     if (Object.keys(perPortion).length === 0) continue;
+    const wasteBy = chickenWasteByDate(input.waste, ing.id, perPortion);
     for (const d of window7) {
       const row = rows.get(d);
       const daySales = byDateMenu.get(d);
@@ -217,6 +232,7 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
       });
       if (s.difference !== null) {
         diffPieces += s.difference;
+        diffUntracked += s.difference - (wasteBy.get(d) ?? 0);
         diffDays += 1;
       }
     }
@@ -226,7 +242,7 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
   const needIngredients: Ingredient[] = input.ingredients.map((i) => ({
     id: i.id,
     name: i.name,
-    unit: i.unit as Ingredient["unit"],
+    unit: i.unit,
     isChicken: i.isChicken,
     piecesPerKg: i.isChicken ? (piecesPerKgUsed.get(i.id) ?? i.piecesPerKg) : null,
   }));
@@ -241,6 +257,18 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
   };
   const needs = (dates: string[]) =>
     dates.length === 0 ? [] : ingredientNeeds(predictedBy(dates), needRecipes, needIngredients, bufferPct, stockForNeeds);
+
+  const wasteSummary = lastDataDate
+    ? chickenWasteSummary({
+        end: lastDataDate,
+        days: 7,
+        waste: input.waste,
+        sales,
+        chickenIds: chicken.map((c) => c.id),
+        recipes: input.recipes,
+      })
+    : null;
+  const wasteStats = { pieces: wasteSummary?.pieces7 ?? 0, ratePct: wasteSummary?.ratePct7 ?? null };
 
   const failedIsNewest =
     forecast.last?.status === "failed" && (!ok || forecast.last.createdAt > ok.createdAt);
@@ -278,7 +306,8 @@ export function buildDashboard(input: DashboardInput): DashboardSnapshot {
       soldPrev7: sum(windowPrev7.map((d) => totalByDate.get(d) ?? 0)),
       openDays7,
       avgPerDay7: openDays7 > 0 ? sold7 / openDays7 : 0,
-      stockDiff: diffDays > 0 ? { pieces: diffPieces, days: diffDays } : null,
+      stockDiff: diffDays > 0 ? { pieces: diffPieces, untracked: diffUntracked, days: diffDays } : null,
+      waste: wasteStats,
     },
     bufferPct,
   };

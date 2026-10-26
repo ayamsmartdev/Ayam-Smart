@@ -109,6 +109,7 @@ export function StockCard({
   invalid,
   pending,
   savedLabel,
+  wasteByIngredient = {},
   onChange,
   onSave,
 }: {
@@ -123,6 +124,8 @@ export function StockCard({
   invalid: boolean;
   pending: boolean;
   savedLabel: string | null;
+  /** Potong ayam terbuang yang sudah dicatat di Food waste untuk tanggal ini (T-21). */
+  wasteByIngredient?: Record<string, number>;
   onChange: (id: string, field: keyof StockDraft, raw: string) => void;
   onSave: () => void;
 }) {
@@ -230,6 +233,7 @@ export function StockCard({
                     hasPrevious={prev !== null}
                     hasRecipe={hasRecipe}
                     salesKnown={used !== null}
+                    wastePieces={wasteByIngredient[ing.id] ?? 0}
                   />
                 </dl>
               ) : null}
@@ -258,11 +262,13 @@ function DifferenceNote({
   hasPrevious,
   hasRecipe,
   salesKnown,
+  wastePieces,
 }: {
   summary: ReturnType<typeof computeStockSummary>;
   hasPrevious: boolean;
   hasRecipe: boolean;
   salesKnown: boolean;
+  wastePieces: number;
 }) {
   const base = "pt-1 text-[13px] leading-snug";
   if (!hasPrevious) {
@@ -272,24 +278,39 @@ function DifferenceNote({
     return <p className={cn(base, "text-ink-soft")}>Selisih belum bisa dihitung: bahan ini belum ada di resep.</p>;
   }
   if (!salesKnown) {
-    return <p className={cn(base, "text-ink-soft")}>Isi porsi terjual di bawah untuk menghitung sisa seharusnya.</p>;
+    return <p className={cn(base, "text-ink-soft")}>Isi rekap porsi terjual untuk menghitung sisa seharusnya.</p>;
   }
   if (summary.difference === null) {
     return <p className={cn(base, "text-ink-soft")}>Isi sisa masuk freezer saat tutup untuk melihat selisih.</p>;
   }
-  const n = summary.difference;
+  // Selisih dikurangi ayam yang sudah dicatat di Food waste → sisanya benar-benar tidak tercatat (T-21).
+  const n = summary.difference - wastePieces;
   const approx = summary.estimated ? " (perkiraan, karena jumlah potong belanja tidak diisi)" : "";
-  if (n === 0) return <p className={cn(base, "font-semibold text-daun-600")}>Cocok dengan hitungan{approx}.</p>;
+  const wasteNote =
+    wastePieces > 0 ? (
+      <span className="mt-0.5 block font-normal text-ink-soft">
+        {formatNumber(wastePieces, 0, 1)} potong sudah dicatat sebagai food waste.
+      </span>
+    ) : null;
+  if (n === 0) {
+    return (
+      <p className={cn(base, "font-semibold text-daun-600")}>
+        Cocok dengan hitungan{approx}.{wasteNote}
+      </p>
+    );
+  }
   if (n > 0) {
     return (
       <p className={cn(base, "font-semibold text-kriuk-700")}>
-        Selisih {formatNumber(n)} potong tidak tercatat: food waste, dipakai sendiri, atau salah hitung rekap{approx}.
+        Selisih {formatNumber(n, 0, 1)} potong tidak tercatat: waste yang belum dicatat, dipakai sendiri, atau salah hitung
+        rekap{approx}.{wasteNote}
       </p>
     );
   }
   return (
     <p className={cn(base, "font-semibold text-kriuk-700")}>
-      Sisa {formatNumber(-n)} potong lebih banyak dari hitungan: cek jumlah potong belanja atau rekap porsi{approx}.
+      Sisa {formatNumber(-n, 0, 1)} potong lebih banyak dari hitungan: cek jumlah potong belanja, rekap porsi, atau
+      catatan food waste{approx}.{wasteNote}
     </p>
   );
 }

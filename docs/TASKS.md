@@ -97,7 +97,9 @@
 ## Sprint 2 — Fitur Pelengkap (29 Okt–1 Nov)
 
 - [x] T-20 (F) Halaman rekomendasi bahan baku (besok + 7 hari, potong & kg) — ✅ diuji & di-push `ef795f9`
-- [ ] T-21 (F) Food waste: form, riwayat (ubah/hapus), grafik, tingkat waste di dashboard
+- [~] T-21 (F) Food waste: form, riwayat (ubah/hapus), grafik, tingkat waste di dashboard — ✅ file siap (D-35): halaman Waste live,
+  Beranda "Food waste ayam" + "Tidak tercatat", kartu stok mengurangkan waste tercatat, waste di data simulasi. **Sisa:** uji Fillian,
+  push, jalankan ulang SQL demo (sekarang berisi food waste)
 - [ ] T-22 (F) Penanda kondisi hari (termasuk tanggal mendatang) + dipakai di forecast
 - [ ] T-23 (F) Import CSV: template, validasi, pratinjau, upsert
 - [x] T-24 (F) Halaman forecast detail per kategori (model, error, jumlah hari data, peringatan) — ✅ di /prediksi (`ef795f9`; faktor menyusul T-19b)
@@ -169,3 +171,4 @@
 - 2026-10-25 — Sprint T-19/T-20/T-24/T-25 lolos uji lokal + production (pindah halaman sedikit lebih lambat, masih ditoleransi), di-push `ef795f9`. Fillian: "rata-rata 7 hari bukan machine learning" → D-33: Ridge model utama dengan alpha per kategori (Ridge ≤ rata-rata 7 hari di 10/12 kategori simulasi), ma7 hanya cadangan & pembanding, faktor yang dipelajari ditampilkan.
 - 2026-10-25 — D-33 (Ridge model utama) lolos uji & di-push `140808e`. D-34 dikerjakan atas usulan Fillian: Rekap hanya porsi, stok ayam di Bahan, prediksi & Hitung ulang di Prediksi.
 - 2026-10-25 — D-34 di-push `584777c`. Logo klien diterima: ikon ayam sirkuit dipisah dari tulisan (segmentasi warna), dipasang di header/sidebar + favicon/ikon tab/apple-icon (T-26).
+- 2026-10-26 — T-21 food waste ke database (D-35): halaman Waste live (catat/ubah/hapus, ringkasan + grafik 14 hari), ayam terbuang & "tidak tercatat" di Beranda dan kartu stok, generator demo menambah food waste. Modul pratinjau lama dihapus.

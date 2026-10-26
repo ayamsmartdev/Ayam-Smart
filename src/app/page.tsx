@@ -120,7 +120,7 @@ export default async function BerandaPage() {
               <h2 id="stats-title" className="mb-2 px-1 text-[15px] font-semibold text-ink-soft">
                 7 hari s.d. {formatDayMonth(s.lastDataDate!)}
               </h2>
-              <dl className="glass grid grid-cols-3 divide-x divide-line/70 rounded-panel lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
+              <dl className="glass grid grid-cols-2 rounded-panel [&>div:nth-child(odd)]:border-r [&>div:nth-child(-n+2)]:border-b [&>div]:border-line/70 lg:grid-cols-1 lg:[&>div]:border-r-0 lg:[&>div:not(:last-child)]:border-b">
                 {[
                   {
                     label: "Terjual",
@@ -139,11 +139,21 @@ export default async function BerandaPage() {
                     valueClass: "",
                   },
                   {
-                    label: "Selisih stok",
-                    value: s.stats.stockDiff ? formatNumber(s.stats.stockDiff.pieces) : "—",
-                    note: s.stats.stockDiff ? `potong, ${s.stats.stockDiff.days} hari tercatat` : "isi belanja & sisa",
+                    label: "Food waste ayam",
+                    value: formatNumber(s.stats.waste.pieces, 0, 1),
+                    note:
+                      s.stats.waste.ratePct === null
+                        ? "potong tercatat"
+                        : `potong, ${formatPercent(s.stats.waste.ratePct)} ayam terpakai`,
                     noteClass: "text-ink-soft",
-                    valueClass: s.stats.stockDiff && s.stats.stockDiff.pieces > 0 ? "text-sambal-700" : "",
+                    valueClass: s.stats.waste.pieces > 0 ? "text-sambal-700" : "",
+                  },
+                  {
+                    label: "Tidak tercatat",
+                    value: s.stats.stockDiff ? formatNumber(s.stats.stockDiff.untracked, 0, 1) : "—",
+                    note: s.stats.stockDiff ? `potong, dari ${s.stats.stockDiff.days} hari stok` : "isi belanja & sisa",
+                    noteClass: "text-ink-soft",
+                    valueClass: s.stats.stockDiff && s.stats.stockDiff.untracked > 0 ? "text-kriuk-700" : "",
                   },
                 ].map((item) => (
                   <div
@@ -161,7 +171,8 @@ export default async function BerandaPage() {
                 ))}
               </dl>
               <p className="mt-2 px-1 text-[13px] leading-relaxed text-ink-soft">
-                Selisih stok = ayam yang tidak tercatat di rekap (food waste, dipakai sendiri, atau salah hitung).
+                Tidak tercatat = selisih stok ayam yang tidak ada di rekap maupun catatan food waste (dipakai sendiri,
+                waste yang belum dicatat, atau salah hitung).
               </p>
             </section>
 

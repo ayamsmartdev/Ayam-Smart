@@ -6,7 +6,9 @@
  *                    hanya untuk bahan yang dibeli per kg (ayam); tiap bahan punya angkanya sendiri.
  * Prediksi tidak dibulatkan sebelum dikalikan resep.
  */
-import type { Ingredient, RecipeItem } from "./demo-data";
+/** Bahan untuk hitungan kebutuhan; `piecesPerKg` hanya untuk bahan yang dibeli per kg (D-28). */
+export type Ingredient = { id: string; name: string; unit: string; isChicken: boolean; piecesPerKg?: number | null };
+export type RecipeItem = { menuId: string; ingredientId: string; qtyPerPortion: number };
 
 export type IngredientNeed = {
   ingredient: Ingredient;

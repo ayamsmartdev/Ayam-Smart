@@ -3,6 +3,7 @@ import { buildDashboard, type DashboardSnapshot } from "@/lib/dashboard";
 import { getRecipes } from "@/lib/data/recipes";
 import { selectAll } from "@/lib/data/select-all";
 import { getSettings } from "@/lib/data/settings";
+import { getWasteFacts } from "@/lib/data/waste";
 import { addDays } from "@/lib/date";
 import { type Dataset, getDatasetChoice } from "@/lib/dataset";
 import { getLatestForecast } from "@/lib/forecast-client";
@@ -33,7 +34,7 @@ export async function getDashboard(dataset: Dataset, today: string): Promise<Das
   const salesFrom = addDays(anchor, -(SALES_DAYS - 1));
   const stockFrom = addDays(anchor < today ? anchor : today, -(STOCK_DAYS - 1));
 
-  const [menus, ingredients, recipes, settings, forecast, sales, closed, stock] = await Promise.all([
+  const [menus, ingredients, recipes, settings, forecast, sales, closed, stock, waste] = await Promise.all([
     supabase.from("menus").select("id, name").eq("is_active", true).order("sort_order").order("name"),
     supabase
       .from("ingredients")
@@ -78,6 +79,7 @@ export async function getDashboard(dataset: Dataset, today: string): Promise<Das
         .order("ingredient_id")
         .range(from, to),
     ),
+    getWasteFacts(dataset, addDays(stockFrom, -7), today),
   ]);
   if (menus.error) throw menus.error;
   if (ingredients.error) throw ingredients.error;
@@ -105,6 +107,7 @@ export async function getDashboard(dataset: Dataset, today: string): Promise<Das
       boughtPieces: num(s.bought_pieces),
       leftover: num(s.leftover_pieces),
     })),
+    waste,
   });
 }
 

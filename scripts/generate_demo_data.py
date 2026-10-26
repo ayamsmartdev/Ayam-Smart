@@ -72,6 +72,11 @@ PARAMS: dict = {
     "untracked_max": 2,
     # Peluang penjual mengisi jumlah potong saat belanja (sisanya hanya kg). Asumsi.
     "count_pieces_probability": 0.7,
+    # Food waste tercatat (T-21). Bagian dari ayam "tidak tercatat" di atas yang ternyata dicatat
+    # penjual sebagai waste (sisanya tetap tidak tercatat). Asumsi.
+    "waste_record_probability": 0.7,
+    # Waste bahan non-ayam per hari (Kentang tidak laku). Asumsi.
+    "other_waste_probability": 0.1,
     "initial_leftover": 6,
 }
 
@@ -93,6 +98,8 @@ class DemoData:
     stockout_dates: list[date] = field(default_factory=list)
     stockout_days: int = 0
     untracked_total: int = 0
+    # (tanggal, "menu" | "bahan", nama kategori/bahan, jumlah, alasan) — dicatat sebagai food waste.
+    waste: list[tuple[date, str, str, int, str]] = field(default_factory=list)
 
 
 def month_multiplier(day: int, params: dict) -> float:
@@ -115,6 +122,8 @@ def simulate(
     """Simulasi harian. Penjualan ayam dibatasi stok yang tersedia (bisa kehabisan)."""
     p = PARAMS if params is None else params
     rng = np.random.default_rng(seed)
+    # RNG terpisah untuk waste agar angka penjualan/stok sama persis dengan sebelum T-21.
+    waste_rng = np.random.default_rng(seed + 1000)
     start = end - timedelta(days=days - 1)
     data = DemoData(start=start, end=end)
 
@@ -162,6 +171,22 @@ def simulate(
         untracked = min(int(rng.integers(0, p["untracked_max"] + 1)), available - used)
         leftover = available - used - untracked
         data.untracked_total += untracked
+        # Sebagian ayam tidak tercatat ternyata dicatat sebagai waste: porsi geprek bakar tidak laku
+        # (1 potong/porsi) atau potong dada rusak. Jumlahnya ≤ tidak tercatat → stok tetap konsisten.
+        recorded = (
+            int(waste_rng.binomial(untracked, p["waste_record_probability"]))
+            if untracked
+            else 0
+        )
+        if recorded:
+            if waste_rng.random() < 0.5:
+                data.waste.append((d, "menu", "Geprek bakar", recorded, "tidak_laku"))
+            else:
+                data.waste.append((d, "bahan", STOCK_INGREDIENT, recorded, "rusak"))
+        if waste_rng.random() < p["other_waste_probability"]:
+            data.waste.append(
+                (d, "menu", "Kentang", int(waste_rng.integers(1, 3)), "tidak_laku")
+            )
 
         for c, q in zip(cats, sold, strict=True):
             data.sales.append((d, c, int(q)))
@@ -196,6 +221,8 @@ def render_sql(data: DemoData, params: dict | None = None) -> str:
         for d, kg, pcs, left in data.stock
     )
     closed_values = ",\n".join(f"  ({_q(d.isoformat())})" for d in data.closed)
+    menu_waste = [w for w in data.waste if w[1] == "menu"]
+    item_waste = [w for w in data.waste if w[1] == "bahan"]
 
     parts = [
         "-- AYAMSMART — DATA SIMULASI (dataset 'demo'). Dibuat oleh scripts/generate_demo_data.py.",
@@ -216,6 +243,7 @@ def render_sql(data: DemoData, params: dict | None = None) -> str:
         "delete from public.daily_sales   where dataset = 'demo';",
         "delete from public.daily_stock   where dataset = 'demo';",
         "delete from public.daily_context where dataset = 'demo';",
+        "delete from public.food_waste    where dataset = 'demo';",
         "",
         "insert into public.daily_sales (dataset, sale_date, menu_id, qty)",
         "select 'demo', v.d::date, m.id, v.q",
@@ -240,6 +268,31 @@ def render_sql(data: DemoData, params: dict | None = None) -> str:
             closed_values,
             "  ) as v(d);",
         ]
+    if menu_waste:
+        parts += [
+            "",
+            "insert into public.food_waste (dataset, waste_date, menu_id, qty, reason, note)",
+            "select 'demo', v.d::date, m.id, v.q, v.alasan, 'simulasi'",
+            "  from (values",
+            ",\n".join(
+                f"  ({_q(d.isoformat())}, {_q(n)}, {q}, {_q(r)})"
+                for d, _, n, q, r in menu_waste
+            ),
+            "  ) as v(d, cat, q, alasan)",
+            "  join public.menus m on lower(trim(m.name)) = lower(v.cat);",
+        ]
+    if item_waste:
+        parts += [
+            "",
+            "insert into public.food_waste (dataset, waste_date, ingredient_id, qty, reason, note)",
+            "select 'demo', v.d::date, i.id, v.q, v.alasan, 'simulasi'",
+            "  from (values",
+            ",\n".join(
+                f"  ({_q(d.isoformat())}, {q}, {_q(r)})" for d, _, _, q, r in item_waste
+            ),
+            "  ) as v(d, q, alasan)",
+            f"  cross join (select id from public.ingredients where lower(trim(name)) = {_q(STOCK_INGREDIENT.lower())}) i;",
+        ]
     parts += [
         "",
         "commit;",
@@ -247,7 +300,8 @@ def render_sql(data: DemoData, params: dict | None = None) -> str:
         "-- Cek: jumlah baris per tabel untuk dataset demo.",
         "select 'daily_sales' as tabel, count(*) as baris from public.daily_sales where dataset = 'demo'",
         "union all select 'daily_stock', count(*) from public.daily_stock where dataset = 'demo'",
-        "union all select 'daily_context', count(*) from public.daily_context where dataset = 'demo';",
+        "union all select 'daily_context', count(*) from public.daily_context where dataset = 'demo'",
+        "union all select 'food_waste', count(*) from public.food_waste where dataset = 'demo';",
         "",
     ]
     return "\n".join(parts)
@@ -274,6 +328,7 @@ def summary(data: DemoData, params: dict | None = None) -> dict:
             sum(s[3] for s in data.stock) / max(len(data.stock), 1), 1
         ),
         "untracked_total": data.untracked_total,
+        "waste_rows": len(data.waste),
     }
 
 

@@ -6,10 +6,12 @@ import { LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 import { loadDashboardPage } from "@/lib/data/dashboard";
-import { getRekap, getStockIngredients, parseRekapDate } from "@/lib/data/rekap";
+import { getRekap, getStockIngredients, LIVE, parseRekapDate } from "@/lib/data/rekap";
+import { getWasteFacts } from "@/lib/data/waste";
 import { formatDayLong, formatDayMonth, relativeDayLabel, todayWIB } from "@/lib/date";
 import { LIVE_MIN_DAYS } from "@/lib/dataset";
 import { isPinVerified } from "@/lib/pin";
+import { chickenWasteByDate } from "@/lib/waste";
 import { NeedsView } from "./needs-view";
 import { StockSection } from "./stock-section";
 
@@ -19,8 +21,15 @@ export const dynamic = "force-dynamic";
 /** Data kartu stok (selalu `live`); null jika database tidak terjangkau. */
 async function loadStock(date: string) {
   try {
-    const [ingredients, rekap] = await Promise.all([getStockIngredients(date), getRekap(date)]);
-    return { ingredients, rekap };
+    const [ingredients, rekap, waste] = await Promise.all([
+      getStockIngredients(date),
+      getRekap(date),
+      getWasteFacts(LIVE, date, date),
+    ]);
+    const wasteByIngredient = Object.fromEntries(
+      ingredients.map((i) => [i.id, chickenWasteByDate(waste, i.id, i.qtyPerPortionByMenu).get(date) ?? 0]),
+    );
+    return { ingredients, rekap, wasteByIngredient };
   } catch {
     return null;
   }
@@ -135,6 +144,7 @@ export default async function BahanPage({ searchParams }: PageProps<"/bahan">) {
             qtyByMenu={stock.rekap.qtyByMenu}
             closed={stock.rekap.closed}
             stockSavedAt={stock.rekap.stockSavedAt}
+            wasteByIngredient={stock.wasteByIngredient}
           />
         )}
       </div>

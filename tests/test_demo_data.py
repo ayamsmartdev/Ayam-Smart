@@ -115,7 +115,30 @@ def test_sql_hanya_menyentuh_dataset_demo_dan_lengkap(data):
     assert "raise exception" in sql  # kategori/bahan tidak lengkap → batal semua
     assert "'live'" not in sql
     assert sql.count("where dataset = 'demo'") >= 3
-    assert sql.count("\n  ('") == len(data.sales) + len(data.stock) + len(data.closed)
+    assert sql.count("\n  ('") == (
+        len(data.sales) + len(data.stock) + len(data.closed) + len(data.waste)
+    )
     assert sql.strip().endswith("where dataset = 'demo';")
     # Kata kunci SQL tidak boleh dipakai sebagai nama kolom alias (mis. "left").
     assert "v.left" not in sql and ", left)" not in sql
+
+
+def test_waste_tercatat_tidak_melebihi_ayam_tidak_tercatat(data):
+    assert data.waste, "seed 42 seharusnya punya catatan waste"
+    chicken_waste: dict[date, int] = {}
+    for d, kind, name, q, reason in data.waste:
+        assert q > 0 and reason in {"tidak_laku", "rusak"}
+        if name in ("Geprek bakar", "Ayam dada"):
+            chicken_waste[d] = chicken_waste.get(d, 0) + q
+    assert sum(chicken_waste.values()) <= data.untracked_total
+    assert not set(data.closed) & {d for d, *_ in data.waste}
+
+
+def test_angka_penjualan_tidak_berubah_karena_waste(data):
+    # RNG waste terpisah: ringkasan seed 42 sama dengan sebelum T-21.
+    s = summary(data)
+    assert (s["open_days"], s["avg_chicken_portions"], s["stockout_days"]) == (
+        116,
+        46.4,
+        19,
+    )

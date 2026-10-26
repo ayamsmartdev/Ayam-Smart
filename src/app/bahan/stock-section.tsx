@@ -55,6 +55,7 @@ export function StockSection({
   qtyByMenu,
   closed,
   stockSavedAt,
+  wasteByIngredient,
 }: {
   ingredients: StockCardIngredient[];
   date: string;
@@ -64,6 +65,7 @@ export function StockSection({
   qtyByMenu: Record<string, number>;
   closed: boolean;
   stockSavedAt: string | null;
+  wasteByIngredient: Record<string, number>;
 }) {
   const router = useRouter();
   const [drafts, setDrafts] = useState<Record<string, StockDraft>>(() =>
@@ -188,6 +190,7 @@ export function StockSection({
         invalid={invalid}
         pending={pending}
         savedLabel={savedAt ? `Stok tersimpan ${formatSavedAt(savedAt)}.` : null}
+        wasteByIngredient={wasteByIngredient}
         onChange={update}
         onSave={save}
       />

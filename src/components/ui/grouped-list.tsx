@@ -32,9 +32,11 @@ type RowProps = {
   subtitle?: ReactNode;
   trailing?: ReactNode;
   href?: string;
+  /** Baris bisa diketuk tanpa pindah halaman (mis. buka dialog ubah). */
+  onClick?: () => void;
 };
 
-export function ListRow({ leading, title, subtitle, trailing, href }: RowProps) {
+export function ListRow({ leading, title, subtitle, trailing, href, onClick }: RowProps) {
   const content = (
     <>
       {leading ? <div className="shrink-0">{leading}</div> : null}
@@ -43,7 +45,7 @@ export function ListRow({ leading, title, subtitle, trailing, href }: RowProps) 
         {subtitle ? <div className="mt-0.5 text-[13px] text-ink-soft">{subtitle}</div> : null}
       </div>
       {trailing ? <div className="shrink-0 text-right">{trailing}</div> : null}
-      {href ? <ChevronRightIcon className="size-5 shrink-0 text-ink-faint" /> : null}
+      {href || onClick ? <ChevronRightIcon className="size-5 shrink-0 text-ink-faint" /> : null}
     </>
   );
   const rowClass = "flex min-h-14 items-center gap-3 px-4 py-3";
@@ -53,6 +55,14 @@ export function ListRow({ leading, title, subtitle, trailing, href }: RowProps) 
         <Link href={href} className={cn(rowClass, "transition-colors hover:bg-white/50 active:bg-white/70")}>
           {content}
         </Link>
+      ) : onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className={cn(rowClass, "w-full text-left transition-colors hover:bg-white/50 active:bg-white/70")}
+        >
+          {content}
+        </button>
       ) : (
         <div className={rowClass}>{content}</div>
       )}

@@ -231,7 +231,7 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 
 > Snapshot kondisi proyek SEKARANG. Update setiap akhir sesi. Harus tetap benar jika dibaca tanpa konteks chat.
 
-**Terakhir diupdate:** 25 Oktober 2026 (D-34 Rekap hanya porsi; stok di Bahan, file siap)
+**Terakhir diupdate:** 26 Oktober 2026 (T-21 food waste ke database, D-35, file siap)
 
 - **Sudah data nyata (dataset `live`, Supabase region Singapura):**
   - `/rekap` — rekap harian semua menu aktif (termasuk 0), mode warung tutup, pilih tanggal s.d. 30 hari lalu.
@@ -240,8 +240,8 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   - PIN (D-21): `/pin`, cookie 30 hari, rate limit, proxy + cek di setiap action. `/status` untuk cek koneksi DB.
 - **Beranda, Prediksi, Bahan** membaca forecast tersimpan dari Supabase (D-32). Mode **Simulasi** (dataset `demo`) atau
   **Data warung** (`live`): otomatis `live` jika rekap ≥ 14 hari, selain itu `demo`; pilihan per browser via cookie.
-- **Masih simulasi lama** (`src/lib/demo-data.ts` + `preview-forecast.ts`, berlabel Simulasi): Waste (simpan waste belum
-  ke DB), Import (baru unduh template).
+- **Food waste** (D-35): halaman Waste selalu data warung (PIN) — catat/ubah/hapus, ringkasan & grafik 14 hari; Beranda
+  menampilkan ayam terbuang & "tidak tercatat" (selisih stok − waste). Import masih template saja (T-23).
 - **Python forecast:** `api/forecast.py` kontrak §6.1 (T-17, D-30, D-33): **Ridge model utama** (≥ 28 hari, alpha per
   kategori lewat backtest), ma7 hanya cadangan & pembanding, faktor yang dipelajari, rentang 10–90%; `GET` = cek kesehatan. Teruji di Vercel (12 seri ±0,9 dtk). 85 tes pytest
   (`py -3.12 -m pytest`). Contoh request: `py -3.12 scripts/forecast_demo_request.py` → `scripts/out/`.
@@ -255,7 +255,7 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
 - **Forecast tersambung (T-18, D-31):** simpan rekap → forecast `live` dihitung & disimpan (`forecast_runs`/`forecasts`);
   status + tombol Hitung ulang di halaman Prediksi. Lokal perlu `py -3.12 api\forecast.py` jalan + `FORECAST_URL` di
   `.env.local`; di Vercel `FORECAST_URL` boleh kosong.
-- **Belum ada:** simpan food waste (T-21), import penjualan kasir Ketoko (T-23, menunggu contoh export berisi data).
+- **Belum ada:** import penjualan kasir Ketoko (T-23, menunggu contoh export berisi data), isian penanda hari (T-22).
 - **Kasir klien:** Ketoko.co.id Desktop (berlangganan). Export laporan = .xlsx tata letak cetak; per 25 Okt belum ada transaksi.
 - **Database:** skema di `supabase/migrations/0001_init.sql` (10 tabel, RLS tanpa policy). Isi tabel live = data asli
   klien → **jangan pernah dimasukkan ke repo** (repo publik).
@@ -263,7 +263,7 @@ Paket dokumen sengaja ramping. **Jangan membuat file dokumentasi baru tanpa pers
   Halaman pratinjau ISR 60 dtk + FreshnessGuard (D-19); halaman DB `force-dynamic`. Env di Vercel: `SUPABASE_URL`,
   `SUPABASE_SECRET_KEY`, `APP_PIN`, `SESSION_SECRET`, `FORECAST_SECRET`.
 - **Lokal:** Python 3.12.10 terpasang (dipanggil `py -3.12`; `python` default = 3.15, jangan dipakai).
-- **Berikutnya:** uji & push D-34 → T-21 food waste ke DB atau T-23 importer Ketoko (bila contoh ada) →
+- **Berikutnya:** uji & push T-21 (+ jalankan ulang SQL demo) → T-22 penanda hari atau T-23 importer Ketoko (bila contoh ada) →
   T-33 data demo final (`--end` sehari sebelum demo). Sprint = batas paling lambat; boleh lebih cepat (`docs/TASKS.md`).
 - **Akun:** Gmail AYAMSMART, GitHub `ayamsmartdev` (login via Google), Vercel Hobby dan Supabase Free
   (keduanya login via GitHub `ayamsmartdev`). 2FA belum diaktifkan (T-02).

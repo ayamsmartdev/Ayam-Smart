@@ -2,8 +2,10 @@ import { UploadIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 import { addDays, todayWIB } from "@/lib/date";
-import { DEMO_MENUS } from "@/lib/demo-data";
 import { TemplateDownload } from "./template-download";
+
+/** Contoh nama kategori untuk isi template (bukan data warung); importer asli menunggu T-23. */
+const EXAMPLE_CATEGORIES = ["Geprek bakar", "Geprek", "Kentang"];
 
 const steps = [
   {
@@ -44,7 +46,7 @@ export default function ImportPage() {
           </ol>
           <div className="mt-5">
             <TemplateDownload
-              menuNames={DEMO_MENUS.map((m) => m.name)}
+              menuNames={EXAMPLE_CATEGORIES}
               sampleDate={addDays(todayWIB(), -1)}
             />
           </div>
